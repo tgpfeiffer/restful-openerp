@@ -6,3 +6,8 @@ url: http://localhost:8069/xmlrpc/
 [Proxy Settings]
 # port to listen on
 #port: 8068
+
+[Tests]
+# credentials to run the tests with
+user: user
+password: pass
