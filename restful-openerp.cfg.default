@@ -2,3 +2,7 @@
 # give the url of the XML-RPC endpoint of your OpenERP installation
 #  WITH trailing slash
 url: http://localhost:8069/xmlrpc/
+
+[Proxy Settings]
+# port to listen on
+#port: 8068
