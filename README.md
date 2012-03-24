@@ -17,7 +17,7 @@ For example:
     $ curl -u user:pass http://localhost:8068/erptest/res.partner
     [4, 3, 8, 5, 7, 6, 9, 10, 1, 2]
 
-The service will respond with HTTP 403 if user/pass is wrong or not present, and with HTTP 500 if something went wrong.
+The service will respond with HTTP response code 403 if user/pass is wrong, 401 if not present, and with HTTP 500 if something went wrong.
 
 ## Roadmap
 

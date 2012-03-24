@@ -15,6 +15,14 @@ from twisted.internet import reactor, task
 from twisted.python import log
 
 
+class UnauthorizedPage(ErrorPage):
+  def __init__(self):
+    ErrorPage.__init__(self, 401, "Unauthorized", "Use HTTP Basic Authentication!")
+  def render(self, request):
+    r = ErrorPage.render(self, request)
+    request.setHeader("WWW-Authenticate", 'Basic realm="OpenERP"')
+    return r
+
 class OpenErpDispatcher(Resource, object):
   databases = {}
   
@@ -27,7 +35,7 @@ class OpenErpDispatcher(Resource, object):
   def getChildWithDefault(self, pathElement, request):
     """Ensure that we have HTTP Basic Auth."""
     if not (request.getUser() and request.getPassword()):
-      return ForbiddenResource("Use HTTP Basic Authentication to access resources.")
+      return UnauthorizedPage()
     else:
       return super(OpenErpDispatcher, self).getChildWithDefault(pathElement, request)
   
