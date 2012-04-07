@@ -13,11 +13,24 @@ from twisted.trial import unittest
 from twisted.web.server import Site
 from twisted.web.http_headers import Headers
 from twisted.internet import reactor
+from twisted.internet.protocol import Protocol
+from twisted.internet.defer import Deferred
 from twisted.web.client import Agent
 
 from restfulOpenErpProxy import OpenErpDispatcher
 
 # NB. to be run with 'trial' from the twisted test suite
+
+class PrinterClient(Protocol):
+  def __init__(self, whenFinished):
+    self.whenFinished = whenFinished
+    self.buffer = ""
+
+  def dataReceived(self, bytes):
+    self.buffer += bytes
+
+  def connectionLost(self, reason):
+    self.whenFinished.callback(self.buffer)
 
 class OpenErpProxyTest(unittest.TestCase):
 
