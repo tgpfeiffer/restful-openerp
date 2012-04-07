@@ -23,6 +23,7 @@ class UnauthorizedPage(ErrorPage):
     request.setHeader("WWW-Authenticate", 'Basic realm="OpenERP"')
     return r
 
+
 class OpenErpDispatcher(Resource, object):
   databases = {}
   
@@ -63,6 +64,8 @@ class OpenErpDbResource(Resource):
 
 
 class OpenErpModelResource(Resource):
+  isLeaf = True
+
   """This is accessed when going to /{database}/{model}."""
   def __init__(self, openerpUrl, dbname, model):
     Resource.__init__(self)
@@ -73,19 +76,58 @@ class OpenErpModelResource(Resource):
   def render_GET(self, request):
     user = request.getUser()
     pwd = request.getPassword()
-    try:
-      sock_common = xmlrpclib.ServerProxy (self.openerpUrl + 'common')
-      uid = sock_common.login(self.dbname, user, pwd)
-      sock = xmlrpclib.ServerProxy(self.openerpUrl + 'object')
-      ids = sock.execute(self.dbname, uid, pwd, self.model, 'search', [])
-      return str(ids)+"\n"
-    except xmlrpclib.Fault, e:
-      if e.faultCode == "AccessDenied":
-        request.setResponseCode(403)
-        return "Bad credentials."
-      else:
-        request.setResponseCode(500)
-        return "An error occured:\n"+str(e)
+
+    if not request.postpath:
+      # give a list of all resources
+      try:
+        sock_common = xmlrpclib.ServerProxy (self.openerpUrl + 'common')
+        uid = sock_common.login(self.dbname, user, pwd)
+        sock = xmlrpclib.ServerProxy(self.openerpUrl + 'object')
+        ids = sock.execute(self.dbname, uid, pwd, self.model, 'search', [])
+        # TODO: return list of URIs
+        return str(ids)+"\n"
+      except xmlrpclib.Fault, e:
+        if e.faultCode == "AccessDenied":
+          request.setResponseCode(403)
+          return "Bad credentials."
+        else:
+          request.setResponseCode(500)
+          return "An error occured:\n"+e.faultCode
+
+    elif len(request.postpath) == 1:
+      # give info about the resource with the given ID
+      try:
+        # make sure we're dealing with an integer id
+        modelId = int(request.postpath[0])
+      except:
+        request.setResponseCode(404)
+        return "No such resource."
+      # read resource from OpenERP
+      try:
+        sock_common = xmlrpclib.ServerProxy (self.openerpUrl + 'common')
+        uid = sock_common.login(self.dbname, user, pwd)
+        sock = xmlrpclib.ServerProxy(self.openerpUrl + 'object')
+        data = sock.execute(self.dbname, uid, pwd, self.model, 'read', [modelId])[0]
+        return str(data)
+      except xmlrpclib.Fault, e:
+        if e.faultCode == "AccessDenied":
+          request.setResponseCode(403)
+          return "Access denied."
+        elif e.faultCode.startswith("warning -- AccessError"):
+          # the above results from a xmlrpclib problem: error message in faultCode
+          request.setResponseCode(404)
+          return "No such resource."
+        else:
+          request.setResponseCode(500)
+          return "An error occured:\n"+e.faultCode
+      except IndexError, e:
+        request.setResponseCode(404)
+        return "No such resource."
+
+    else:    # len(request.postpath) > 1
+      # this doesn't make sense
+      request.setResponseCode(404)
+      return "/%s has no child resources" % ('/'.join([self.dbname, self.model, request.postpath[0]]))
 
 
 if __name__ == "__main__":
