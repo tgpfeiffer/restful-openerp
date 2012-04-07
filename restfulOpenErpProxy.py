@@ -18,6 +18,15 @@ from twisted.web.xmlrpc import Proxy
 
 import pyatom
 
+def localTimeStringToUtcDatetime(s):
+  # get local and UTC timezone to convert the time stamps
+  tz=dateutil.tz.tzlocal()
+  utc=dateutil.tz.tzutc()
+  t = datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') # this time is in local tz
+  t_withtz = t.replace(tzinfo=tz)
+  return t_withtz.astimezone(utc)
+
+
 class UnauthorizedPage(ErrorPage):
   def __init__(self):
     ErrorPage.__init__(self, 401, "Unauthorized", "Use HTTP Basic Authentication!")
@@ -90,21 +99,29 @@ class OpenErpModelResource(Resource):
   def __handleCollectionAnswer(self, val, request, uid, pwd):
 
     def createFeed(items, request):
-      feed = pyatom.AtomFeed(title=self.model+" items", id=self.model)
-      tz=dateutil.tz.tzlocal() # get local timezone
-      utc=dateutil.tz.tzutc()
+      # build a feed
+      # TODO: add the feed url; will currently break the test
+      feed = pyatom.AtomFeed(title=self.model+" items",
+                             id=str(request.URLPath()),
+                             #feed_url=str(request.URLPath())
+                             )
       for item in items:
-        t = datetime.datetime.strptime(item['__last_update'], '%Y-%m-%d %H:%M:%S.%f') # this time is in local tz
-        t_withtz = t.replace(tzinfo=tz)
-        feed.add(title=item['name'],
+        if item['user_id']:
+          feed.add(title=item['name'],
                  url="%s/%s" % (request.URLPath(), item['id']),
-                 updated=t_withtz.astimezone(utc))
+                 updated=localTimeStringToUtcDatetime(item['__last_update']),
+                 author=[{'name': item['user_id'][1]}])
+        else:
+          feed.add(title=item['name'],
+                 url="%s/%s" % (request.URLPath(), item['id']),
+                 updated=localTimeStringToUtcDatetime(item['__last_update']),
+                 author=[{'name': 'None'}])
       request.setHeader("Content-Type", "application/xml")
       request.write(str(feed.to_string()))
       request.finish()
 
     proxy = Proxy(self.openerpUrl + 'object')
-    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', val, ['name', '__last_update'])
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', val, ['name', '__last_update', 'user_id'])
     d.addCallback(createFeed, request)
     return d
 
