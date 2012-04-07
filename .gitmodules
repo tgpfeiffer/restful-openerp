@@ -1,0 +1,3 @@
+[submodule "feedvalidator"]
+	path = feedvalidator
+	url = git://github.com/rubys/feedvalidator.git
