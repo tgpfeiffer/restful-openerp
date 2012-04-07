@@ -7,7 +7,7 @@
 # the terms of the GNU Affero General Public License version 3 as published by
 # the Free Software Foundation.
 
-import os, sys, xmlrpclib, ConfigParser
+import os, sys, xmlrpclib, ConfigParser, datetime, dateutil.tz
 
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import *
@@ -15,6 +15,7 @@ from twisted.internet import reactor, task
 from twisted.python import log
 from twisted.web.xmlrpc import Proxy
 
+import pyatom
 
 class UnauthorizedPage(ErrorPage):
   def __init__(self):
@@ -82,16 +83,30 @@ class OpenErpModelResource(Resource):
     of a certain collection, e.g. all res.partners."""
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', [])
-    d.addCallback(self.__handleCollectionAnswer, request)
+    d.addCallback(self.__handleCollectionAnswer, request, uid, pwd)
     d.addErrback(self.__handleCollectionError, request)
 
-  def __handleCollectionAnswer(self, val, request):
-    #print "collection success", val
-    request.write(str(val))
-    request.finish()
+  def __handleCollectionAnswer(self, val, request, uid, pwd):
+
+    def createFeed(items, request):
+      feed = pyatom.AtomFeed(title=self.model+" items", id=self.model)
+      tz=dateutil.tz.tzlocal() # get local timezone
+      utc=dateutil.tz.tzutc()
+      for item in items:
+        t = datetime.datetime.strptime(item['__last_update'], '%Y-%m-%d %H:%M:%S.%f') # this time is in local tz
+        t_withtz = t.replace(tzinfo=tz)
+        feed.add(title=item['name'],
+                 url="%s/%s" % (request.URLPath(), item['id']),
+                 updated=t_withtz.astimezone(utc))
+      request.write(str(feed.to_string()))
+      request.finish()
+
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', val, ['name', '__last_update'])
+    d.addCallback(createFeed, request)
+    return d
 
   def __handleCollectionError(self, err, request):
-    #print "collection error", err
     err.trap(xmlrpclib.Fault)
     e = err.value
     if e.faultCode == "AccessDenied":
@@ -116,7 +131,6 @@ class OpenErpModelResource(Resource):
     d.addErrback(self.__handleItemError, request)
 
   def __handleItemAnswer(self, val, request):
-    #print "item success", val
     try:
       request.write(str(val[0]))
     except IndexError, e:
@@ -125,7 +139,6 @@ class OpenErpModelResource(Resource):
     request.finish()
 
   def __handleItemError(self, err, request):
-    #print "item error", err
     err.trap(xmlrpclib.Fault)
     e = err.value
     if e.faultCode == "AccessDenied":
