@@ -73,6 +73,7 @@ class OpenErpModelResource(Resource):
     self.openerpUrl = openerpUrl
     self.dbname = dbname
     self.model = model
+    self.desc = {}
 
   ### list items of a collection
 
@@ -139,6 +140,27 @@ class OpenErpModelResource(Resource):
       request.write("An error occured:\n"+e.faultCode)
     request.finish()
 
+  ### update the model information
+
+  def __updateTypedesc(self, uid, pwd):
+    if not self.desc:
+      # update type description
+      proxy = Proxy(self.openerpUrl + 'object')
+      d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'fields_get', [])
+      d.addCallback(self.__handleTypedescAnswer, uid)
+      d.addErrback(self.__handleTypedescError, uid)
+      return d
+    else:
+      return uid
+
+  def __handleTypedescAnswer(self, val, uid):
+    self.desc = val
+    return uid
+
+  def __handleTypedescError(self, err, uid):
+    # if an error appears while updating the type description
+    return uid
+
   ### HTTP request handling
     
   def render_GET(self, request):
@@ -151,6 +173,7 @@ class OpenErpModelResource(Resource):
       # login to OpenERP
       proxyCommon = Proxy(self.openerpUrl + 'common')
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getCollection, request, pwd)
       return NOT_DONE_YET
 
@@ -160,6 +183,7 @@ class OpenErpModelResource(Resource):
       # login to OpenERP
       proxyCommon = Proxy(self.openerpUrl + 'common')
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getItem, request, pwd, request.postpath[0])
       return NOT_DONE_YET
 
