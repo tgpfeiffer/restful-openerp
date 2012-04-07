@@ -19,6 +19,10 @@ from twisted.web.client import Agent
 
 from restfulOpenErpProxy import OpenErpDispatcher
 
+import feedvalidator
+from feedvalidator import compatibility
+from feedvalidator.formatter.text_plain import Formatter
+
 # NB. to be run with 'trial' from the twisted test suite
 
 class PrinterClient(Protocol):
@@ -56,6 +60,23 @@ class OpenErpProxyTest(unittest.TestCase):
 
   def _checkResponseCode(self, response, code):
     self.assertEqual(response.code, code)
+
+  def _checkValidFeed(self, response):
+
+    def isValidFeed(s):
+      events = feedvalidator.validateString(s)['loggedEvents']
+      fil = "A"
+      filterFunc = getattr(compatibility, fil)
+      events = filterFunc(events)
+      output = Formatter(events)
+      if output:
+        print "\n".join(output)
+      self.assertEqual(len(output), 0)
+
+    whenFinished = Deferred()
+    response.deliverBody(PrinterClient(whenFinished))
+    whenFinished.addCallback(isValidFeed)
+    return whenFinished
 
 
 class AuthenticationTest(OpenErpProxyTest):
@@ -134,4 +155,12 @@ class AuthenticationTest(OpenErpProxyTest):
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
+
+  def test_whenAccessToProperCollectionThenValidFeed(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkValidFeed)
 
