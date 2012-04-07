@@ -161,8 +161,23 @@ class OpenErpModelResource(Resource):
     request.setHeader("Content-Type", "application/xml")
     request.write('''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
-  <content xmlns="%s">
-''' % ('/'.join(str(request.URLPath()).split("/")[:-1] + ["schema", self.model])))
+  <title type="text">%s</title>
+  <id>%s</id>
+  <updated>%s</updated>
+  <link href="%s" rel="self" />
+  <author>
+    <name>%s</name>
+  </author>
+  <content type="application/xml">
+  <%s xmlns="%s">
+''' % (item['name'],
+       str(request.URLPath())+"/"+str(item['id']),
+       datetime.datetime.utcnow().isoformat()[:-7]+'Z', # TODO: insert correct updated time
+       str(request.URLPath())+"/"+str(item['id']),
+       'None', # TODO: insert author, if present
+       self.model.replace('.', '_'),
+       '/'.join(str(request.URLPath()).split("/")[:-1] + ["schema", self.model]),
+       ))
     # loop over the fields of the current object
     for key, value in item.iteritems():
       # key is the name of the field, value is the content,
@@ -208,7 +223,7 @@ class OpenErpModelResource(Resource):
           xmlescape(str(value)),
           key)
         )
-    request.write("  </content>\n</entry>")
+    request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
     request.finish()
 
   def __handleItemError(self, err, request):

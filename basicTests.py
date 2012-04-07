@@ -164,3 +164,11 @@ class AuthenticationTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkValidFeed)
 
+  def test_whenAccessToProperResourceThenValidFeed(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/1',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkValidFeed)
+
