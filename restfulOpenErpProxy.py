@@ -9,10 +9,11 @@
 
 import os, sys, xmlrpclib, ConfigParser
 
-from twisted.web.server import Site
+from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import *
 from twisted.internet import reactor, task
 from twisted.python import log
+from twisted.web.xmlrpc import Proxy
 
 
 class UnauthorizedPage(ErrorPage):
@@ -72,60 +73,99 @@ class OpenErpModelResource(Resource):
     self.openerpUrl = openerpUrl
     self.dbname = dbname
     self.model = model
+
+  ### list items of a collection
+
+  def __getCollection(self, uid, request, pwd):
+    """This is called after successful login to list the items
+    of a certain collection, e.g. all res.partners."""
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', [])
+    d.addCallback(self.__handleCollectionAnswer, request)
+    d.addErrback(self.__handleCollectionError, request)
+
+  def __handleCollectionAnswer(self, val, request):
+    #print "collection success", val
+    request.write(str(val))
+    request.finish()
+
+  def __handleCollectionError(self, err, request):
+    #print "collection error", err
+    err.trap(xmlrpclib.Fault)
+    e = err.value
+    if e.faultCode == "AccessDenied":
+      request.setResponseCode(403)
+      request.write("Bad credentials.")
+    else:
+      request.setResponseCode(500)
+      request.write("An error occured:\n"+e.faultCode)
+    request.finish()
+
+  ### list one particular item of a collection
+
+  def __getItem(self, uid, request, pwd, modelId):
+    # make sure we're dealing with an integer id
+    try:
+      modelId = int(modelId)
+    except:
+      modelId = -1
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId])
+    d.addCallback(self.__handleItemAnswer, request)
+    d.addErrback(self.__handleItemError, request)
+
+  def __handleItemAnswer(self, val, request):
+    #print "item success", val
+    try:
+      request.write(str(val[0]))
+    except IndexError, e:
+      request.setResponseCode(404)
+      request.write("No such resource.")
+    request.finish()
+
+  def __handleItemError(self, err, request):
+    #print "item error", err
+    err.trap(xmlrpclib.Fault)
+    e = err.value
+    if e.faultCode == "AccessDenied":
+      request.setResponseCode(403)
+      request.write("Bad credentials.")
+    elif e.faultCode.startswith("warning -- AccessError"):
+      # the above results from a xmlrpclib problem: error message in faultCode
+      request.setResponseCode(404)
+      request.write("No such resource.")
+    else:
+      request.setResponseCode(500)
+      request.write("An error occured:\n"+e.faultCode)
+    request.finish()
+
+  ### HTTP request handling
     
   def render_GET(self, request):
     user = request.getUser()
     pwd = request.getPassword()
 
+    # if uri is sth. like /[dbname]/res.partner,
+    #  give a list of all objects in this collection:
     if not request.postpath:
-      # give a list of all resources
-      try:
-        sock_common = xmlrpclib.ServerProxy (self.openerpUrl + 'common')
-        uid = sock_common.login(self.dbname, user, pwd)
-        sock = xmlrpclib.ServerProxy(self.openerpUrl + 'object')
-        ids = sock.execute(self.dbname, uid, pwd, self.model, 'search', [])
-        # TODO: return list of URIs
-        return str(ids)+"\n"
-      except xmlrpclib.Fault, e:
-        if e.faultCode == "AccessDenied":
-          request.setResponseCode(403)
-          return "Bad credentials."
-        else:
-          request.setResponseCode(500)
-          return "An error occured:\n"+e.faultCode
+      # login to OpenERP
+      proxyCommon = Proxy(self.openerpUrl + 'common')
+      d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__getCollection, request, pwd)
+      return NOT_DONE_YET
 
+    # if URI is sth. like /[dbname]/res.partner/7,
+    #  list this particular item
     elif len(request.postpath) == 1:
-      # give info about the resource with the given ID
-      try:
-        # make sure we're dealing with an integer id
-        modelId = int(request.postpath[0])
-      except:
-        request.setResponseCode(404)
-        return "No such resource."
-      # read resource from OpenERP
-      try:
-        sock_common = xmlrpclib.ServerProxy (self.openerpUrl + 'common')
-        uid = sock_common.login(self.dbname, user, pwd)
-        sock = xmlrpclib.ServerProxy(self.openerpUrl + 'object')
-        data = sock.execute(self.dbname, uid, pwd, self.model, 'read', [modelId])[0]
-        return str(data)
-      except xmlrpclib.Fault, e:
-        if e.faultCode == "AccessDenied":
-          request.setResponseCode(403)
-          return "Access denied."
-        elif e.faultCode.startswith("warning -- AccessError"):
-          # the above results from a xmlrpclib problem: error message in faultCode
-          request.setResponseCode(404)
-          return "No such resource."
-        else:
-          request.setResponseCode(500)
-          return "An error occured:\n"+e.faultCode
-      except IndexError, e:
-        request.setResponseCode(404)
-        return "No such resource."
+      # login to OpenERP
+      proxyCommon = Proxy(self.openerpUrl + 'common')
+      d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__getItem, request, pwd, request.postpath[0])
+      return NOT_DONE_YET
 
+    # if URI is sth. like /[dbname]/res.partner/7/something,
+    #  return 404
     else:    # len(request.postpath) > 1
-      # this doesn't make sense
       request.setResponseCode(404)
       return "/%s has no child resources" % ('/'.join([self.dbname, self.model, request.postpath[0]]))
 
