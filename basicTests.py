@@ -96,6 +96,15 @@ class AuthenticationTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 404)
 
+  def test_whenAccessToResourceChildThen404(self):
+    # TODO: make sure that we actually have an existing resource
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/4/abc',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 404)
+
   def test_whenAccessToNonExistingResourceThen404(self):
     # TODO: make sure that we actually have an non-existing resource
     d = self.agent.request(
