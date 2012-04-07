@@ -27,6 +27,12 @@ The service will respond with HTTP response code 403 if user/pass is wrong, 401 
 * Allow to add and edit resources via POST/PUT, i.e. make it a proper CRU interface (no 'D' though).
 * Create a "Level Three" webservice (cf. Webber/Parastatidis/Robinson: "REST in Practice") that includes in each reply links to related resources, thereby allowing to follow the workflows defined in OpenERP.
 
+## Dependencies
+
+* [Twisted](http://twistedmatrix.com/trac/)
+* [PyAtom](https://github.com/sramana/pyatom)
+* [python-dateutil](http://labix.org/python-dateutil)
+
 ## License
 
 AGPLv3 for now. Will maybe change later.
