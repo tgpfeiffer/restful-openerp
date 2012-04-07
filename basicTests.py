@@ -71,11 +71,45 @@ class AuthenticationTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 405)
 
-  def test_whenAccessToProperResourceThen200(self):
+  def test_whenAccessToProperCollectionThen200(self):
     d = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 200)
+
+  def test_whenAccessToProperResourceThen200(self):
+    # TODO: make sure that we actually have an existing resource
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/4',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 200)
+
+  def test_whenAccessToInvalidResourceThen404(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/abc',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 404)
+
+  def test_whenAccessToNonExistingResourceThen404(self):
+    # TODO: make sure that we actually have an non-existing resource
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/-1',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 404)
+
+  def test_whenAccessToAnotherNonExistingResourceThen404(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/100000000',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 404)
 
