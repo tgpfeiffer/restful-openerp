@@ -8,6 +8,7 @@
 # the Free Software Foundation.
 
 import os, sys, xmlrpclib, ConfigParser, datetime, dateutil.tz
+from xml.sax.saxutils import escape as xmlescape
 
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import *
@@ -131,11 +132,64 @@ class OpenErpModelResource(Resource):
     d.addErrback(self.__handleItemError, request)
 
   def __handleItemAnswer(self, val, request):
+    # val should be a one-element-list with a dictionary describing the current object
     try:
-      request.write(str(val[0]))
+      item = val[0]
     except IndexError, e:
       request.setResponseCode(404)
       request.write("No such resource.")
+      request.finish()
+
+    request.write('''<?xml version="1.0" encoding="utf-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <content xmlns="%s">
+''' % ('/'.join(str(request.URLPath()).split("/")[:-1] + ["schema", self.model])))
+    # loop over the fields of the current object
+    for key, value in item.iteritems():
+      # key is the name of the field, value is the content,
+      #  e.g. key="email", value="me@privacy.net"
+      if self.desc.has_key(key):
+        fieldtype = self.desc[key]['type']
+        # if we have an empty field, we display a closed tag
+        #  (except if this is a boolean field)
+        if not value and fieldtype != "boolean":
+          request.write("    <%s type='%s' />\n" % (
+            key,
+            fieldtype)
+          )
+        # display URIs for many2one fields
+        elif fieldtype == 'many2one':
+          request.write("    <%s type='%s'>%s</%s>\n" % (
+            key,
+            fieldtype,
+            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value[0])]),
+            key)
+          )
+        # display URIs for *2many fields, wrapped by <item>
+        elif fieldtype in ('one2many', 'many2many'):
+          request.write("    <%s type='%s'>%s</%s>\n" % (
+            key,
+            fieldtype,
+            ''.join(
+              ['\n      <item>' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '</item>' for v in value]
+            ) + '\n    ',
+            key)
+          )
+        # for other fields, just output the data
+        else:
+          request.write("    <%s type='%s'>%s</%s>\n" % (
+            key,
+            fieldtype,
+            xmlescape(str(value)),
+            key)
+          )
+      else: # no type given or no self.desc present
+        request.write("    <%s>%s</%s>\n" % (
+          key,
+          xmlescape(str(value)),
+          key)
+        )
+    request.write("  </content>\n</entry>")
     request.finish()
 
   def __handleItemError(self, err, request):
