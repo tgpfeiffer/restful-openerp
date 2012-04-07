@@ -99,6 +99,7 @@ class OpenErpModelResource(Resource):
         feed.add(title=item['name'],
                  url="%s/%s" % (request.URLPath(), item['id']),
                  updated=t_withtz.astimezone(utc))
+      request.setHeader("Content-Type", "application/xml")
       request.write(str(feed.to_string()))
       request.finish()
 
@@ -140,6 +141,7 @@ class OpenErpModelResource(Resource):
       request.write("No such resource.")
       request.finish()
 
+    request.setHeader("Content-Type", "application/xml")
     request.write('''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <content xmlns="%s">
