@@ -187,9 +187,11 @@ class OpenErpModelResource(Resource):
         # if we have an empty field, we display a closed tag
         #  (except if this is a boolean field)
         if not value and fieldtype != "boolean":
-          request.write("    <%s type='%s' />\n" % (
+          request.write("    <%s type='%s'><!-- %s --></%s>\n" % (
             key,
-            fieldtype)
+            fieldtype,
+            value,
+            key)
           )
         # display URIs for many2one fields
         elif fieldtype == 'many2one':
