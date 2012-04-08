@@ -58,28 +58,11 @@ class OpenErpProxyTest(unittest.TestCase):
       self.client.transport.loseConnection()
     return self.server.stopListening()
 
+
+class ResponseCodesTest(OpenErpProxyTest):
+
   def _checkResponseCode(self, response, code):
     self.assertEqual(response.code, code)
-
-  def _checkValidFeed(self, response):
-
-    def isValidFeed(s):
-      events = feedvalidator.validateString(s)['loggedEvents']
-      fil = "A"
-      filterFunc = getattr(compatibility, fil)
-      events = filterFunc(events)
-      output = Formatter(events)
-      if output:
-        print "\n".join(output)
-      self.assertEqual(len(output), 0)
-
-    whenFinished = Deferred()
-    response.deliverBody(PrinterClient(whenFinished))
-    whenFinished.addCallback(isValidFeed)
-    return whenFinished
-
-
-class AuthenticationTest(OpenErpProxyTest):
   
   def test_ifNoBasicAuthThen401(self):
     d = self.agent.request(
@@ -155,6 +138,26 @@ class AuthenticationTest(OpenErpProxyTest):
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
+
+
+class ValidResponsesTest(OpenErpProxyTest):
+
+  def _checkValidFeed(self, response):
+
+    def isValidFeed(s):
+      events = feedvalidator.validateString(s)['loggedEvents']
+      fil = "A"
+      filterFunc = getattr(compatibility, fil)
+      events = filterFunc(events)
+      output = Formatter(events)
+      if output:
+        print "\n".join(output)
+      self.assertEqual(len(output), 0)
+
+    whenFinished = Deferred()
+    response.deliverBody(PrinterClient(whenFinished))
+    whenFinished.addCallback(isValidFeed)
+    return whenFinished
 
   def test_whenAccessToProperCollectionThenValidFeed(self):
     d = self.agent.request(
