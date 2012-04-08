@@ -186,7 +186,7 @@ class OpenErpModelResource(Resource):
        str(request.URLPath())+"/"+str(item['id']),
        'None', # TODO: insert author, if present
        self.model.replace('.', '_'),
-       '/'.join(str(request.URLPath()).split("/")[:-1] + ["schema", self.model]),
+       '/'.join(str(request.URLPath()).split("/") + ["schema"]),
        ))
     # loop over the fields of the current object
     for key, value in item.iteritems():
