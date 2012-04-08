@@ -168,7 +168,7 @@ class OpenErpModelResource(Resource):
   <author>
     <name>%s</name>
   </author>
-  <content type="application/xml">
+  <content type="application/vnd.openerp+xml">
   <%s xmlns="%s">
 ''' % (item['name'],
        str(request.URLPath())+"/"+str(item['id']),
@@ -193,7 +193,7 @@ class OpenErpModelResource(Resource):
           )
         # display URIs for many2one fields
         elif fieldtype == 'many2one':
-          request.write("    <%s type='%s'>%s</%s>\n" % (
+          request.write("    <%s type='%s'>\n      <link href='%s' />\n    </%s>\n" % (
             key,
             fieldtype,
             '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value[0])]),
@@ -205,7 +205,7 @@ class OpenErpModelResource(Resource):
             key,
             fieldtype,
             ''.join(
-              ['\n      <item>' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '</item>' for v in value]
+              ['\n      <link href="' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
             ) + '\n    ',
             key)
           )
