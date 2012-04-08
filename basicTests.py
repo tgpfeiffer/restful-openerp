@@ -64,7 +64,7 @@ class ResponseCodesTest(OpenErpProxyTest):
   def _checkResponseCode(self, response, code):
     self.assertEqual(response.code, code)
   
-  def test_ifNoBasicAuthThen401(self):
+  def test_whenNoBasicAuthThen401(self):
     d = self.agent.request(
         'GET',
         'http://localhost:8068/',
@@ -72,10 +72,18 @@ class ResponseCodesTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 401)
 
-  def test_ifWrongAuthThen403(self):
+  def test_whenWrongAuthToProperCollectionThen403(self):
     d = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner',
+        Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 403)
+
+  def test_whenWrongAuthToProperResourceThen403(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/4',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -138,6 +146,32 @@ class ResponseCodesTest(OpenErpProxyTest):
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
+
+  def test_whenAccessToNonExistingSchemaThen404(self):
+    # TODO: make sure that we actually have an non-existing resource
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partnerx/schema',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 404)
+
+  def test_whenAccessToNonProperSchemaThen200(self):
+    # TODO: make sure that we actually have an non-existing resource
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/schema',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 200)
+
+  def test_whenWrongAuthToProperSchemaThen403(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/schema',
+        Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 403)
 
 
 class ValidResponsesTest(OpenErpProxyTest):
