@@ -26,6 +26,8 @@ def localTimeStringToUtcDatetime(s):
   t_withtz = t.replace(tzinfo=tz)
   return t_withtz.astimezone(utc)
 
+def httpdate(dt):
+  return dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
 class UnauthorizedPage(ErrorPage):
   def __init__(self):
@@ -125,10 +127,24 @@ class OpenErpModelResource(Resource):
     d.addCallback(createFeed, request)
     return d
 
+  ### get __last_update of a collection item
+
+  def __getLastItemUpdate(self, uid, request, pwd, modelId):
+    # make sure we're dealing with an integer id
+    try:
+      modelId = int(modelId)
+    except:
+      modelId = -1
+    proxy = Proxy(self.openerpUrl + 'object')
+    def handleLastItemUpdateAnswer(updateAnswer):
+      return (uid, updateAnswer[0]['__last_update'])
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], ['__last_update'])
+    d.addCallback(handleLastItemUpdateAnswer)
+    return d
 
   ### list one particular item of a collection
 
-  def __getItem(self, uid, request, pwd, modelId):
+  def __getItem(self, (uid, updateTime), request, pwd, modelId):
     # make sure we're dealing with an integer id
     try:
       modelId = int(modelId)
@@ -136,10 +152,10 @@ class OpenErpModelResource(Resource):
       modelId = -1
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId])
-    d.addCallback(self.__handleItemAnswer, request)
+    d.addCallback(self.__handleItemAnswer, request, updateTime)
     return d
 
-  def __handleItemAnswer(self, val, request):
+  def __handleItemAnswer(self, val, request, updateTime):
     # val should be a one-element-list with a dictionary describing the current object
     try:
       item = val[0]
@@ -148,7 +164,11 @@ class OpenErpModelResource(Resource):
       request.write("No such resource.")
       request.finish()
 
+    # set correct headers
+    lastModified = localTimeStringToUtcDatetime(updateTime)
+    request.setHeader("Last-Modified", httpdate(lastModified))
     request.setHeader("Content-Type", "application/atom+xml")
+    # compose answer
     request.write('''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <title type="text">%s</title>
@@ -162,7 +182,7 @@ class OpenErpModelResource(Resource):
   <%s xmlns="%s">
 ''' % (item['name'],
        str(request.URLPath())+"/"+str(item['id']),
-       datetime.datetime.utcnow().isoformat()[:-7]+'Z', # TODO: insert correct updated time
+       lastModified.isoformat()[:-13]+'Z',
        str(request.URLPath())+"/"+str(item['id']),
        'None', # TODO: insert author, if present
        self.model.replace('.', '_'),
@@ -285,6 +305,7 @@ class OpenErpModelResource(Resource):
       proxyCommon = Proxy(self.openerpUrl + 'common')
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
       d.addCallback(self.__updateTypedesc, pwd)
+      d.addCallback(self.__getLastItemUpdate, request, pwd, request.postpath[0])
       d.addCallback(self.__getItem, request, pwd, request.postpath[0])
       d.addErrback(self.__cleanup, request)
       return NOT_DONE_YET
