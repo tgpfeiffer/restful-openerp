@@ -238,6 +238,14 @@ class OpenErpModelResource(Resource):
     request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
     request.finish()
 
+  ### handle login
+
+  def __handleLoginAnswer(self, uid):
+    if not uid:
+      raise xmlrpclib.Fault("AccessDenied", "login failed")
+    else:
+      return uid
+
   ### update the model information
 
   def __updateTypedesc(self, uid, pwd):
@@ -293,6 +301,7 @@ class OpenErpModelResource(Resource):
       # login to OpenERP
       proxyCommon = Proxy(self.openerpUrl + 'common')
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__handleLoginAnswer)
       d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getCollection, request, pwd)
       d.addErrback(self.__cleanup, request)
@@ -304,6 +313,7 @@ class OpenErpModelResource(Resource):
       # login to OpenERP
       proxyCommon = Proxy(self.openerpUrl + 'common')
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__handleLoginAnswer)
       d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getLastItemUpdate, request, pwd, request.postpath[0])
       d.addCallback(self.__getItem, request, pwd, request.postpath[0])
