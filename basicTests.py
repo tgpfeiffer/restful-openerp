@@ -124,7 +124,6 @@ class ResponseCodesTest(OpenErpProxyTest):
     return d.addCallback(self._checkResponseCode, 404)
 
   def test_whenAccessToResourceChildThen404(self):
-    # TODO: make sure that we actually have an existing resource
     d = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner/4/abc',
@@ -150,7 +149,6 @@ class ResponseCodesTest(OpenErpProxyTest):
     return d.addCallback(self._checkResponseCode, 404)
 
   def test_whenAccessToNonExistingSchemaThen404(self):
-    # TODO: make sure that we actually have an non-existing resource
     d = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partnerx/schema',
@@ -158,8 +156,7 @@ class ResponseCodesTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 404)
 
-  def test_whenAccessToNonProperSchemaThen200(self):
-    # TODO: make sure that we actually have an non-existing resource
+  def test_whenAccessToProperSchemaThen200(self):
     d = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner/schema',
