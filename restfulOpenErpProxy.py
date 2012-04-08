@@ -142,6 +142,94 @@ class OpenErpModelResource(Resource):
     d.addCallback(handleLastItemUpdateAnswer)
     return d
 
+  ### list the default values for an item
+
+  def __getItemDefaults(self, uid, request, pwd):
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
+    d.addCallback(self.__handleItemDefaultsAnswer, request)
+    return d
+
+  def __handleItemDefaultsAnswer(self, item, request):
+    # set correct headers
+    request.setHeader("Content-Type", "application/atom+xml")
+    # compose answer
+    request.write('''<?xml version="1.0" encoding="utf-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">Defaults for %s</title>
+  <id>%s</id>
+  <updated>%s</updated>
+  <link href="%s" rel="self" />
+  <author>
+    <name>%s</name>
+  </author>
+  <content type="application/vnd.openerp+xml">
+  <%s xmlns="%s">
+    <id />
+''' % (self.model,
+       str(request.URLPath())+"/defaults",
+       datetime.datetime.utcnow().isoformat()[:-7]+'Z',
+       str(request.URLPath())+"/defaults",
+       'None',
+       self.model.replace('.', '_'),
+       '/'.join(str(request.URLPath()).split("/") + ["schema"]),
+       ))
+    # loop over the fields of the current object
+    for key in self.desc.iterkeys():
+      value = item.has_key(key) and item[key] or ""
+      # key is the name of the field, value is the content,
+      #  e.g. key="email", value="me@privacy.net"
+      if self.desc.has_key(key):
+        fieldtype = self.desc[key]['type']
+        # if we have an empty field, we display a closed tag
+        #  (except if this is a boolean field)
+        if not value and fieldtype != "boolean":
+          request.write("    <%s type='%s' />\n" % (
+            key,
+            fieldtype)
+          )
+        # display URIs for many2one fields
+        elif fieldtype == 'many2one':
+          request.write("    <%s type='%s'>\n      <link href='%s' />\n    </%s>\n" % (
+            key,
+            fieldtype,
+            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value)]),
+            key)
+          )
+        # display URIs for *2many fields, wrapped by <item>
+        elif fieldtype in ('one2many', 'many2many'):
+          request.write("    <%s type='%s'>%s</%s>\n" % (
+            key,
+            fieldtype,
+            ''.join(
+              ['\n      <link href="' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
+            ) + '\n    ',
+            key)
+          )
+        # for other fields, just output the data
+        elif fieldtype == 'boolean':
+          request.write("    <%s type='%s'>%s</%s>\n" % (
+            key,
+            fieldtype,
+            xmlescape(str(value and "True" or "False")),
+            key)
+          )
+        else:
+          request.write("    <%s type='%s'>%s</%s>\n" % (
+            key,
+            fieldtype,
+            xmlescape(str(value)),
+            key)
+          )
+      else: # no type given or no self.desc present
+        request.write("    <%s>%s</%s>\n" % (
+          key,
+          xmlescape(str(value)),
+          key)
+        )
+    request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
+    request.finish()
+
   ### list one particular item of a collection
 
   def __getItem(self, (uid, updateTime), request, pwd, modelId):
@@ -152,10 +240,10 @@ class OpenErpModelResource(Resource):
       modelId = -1
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId])
-    d.addCallback(self.__handleItemAnswer, request, updateTime)
+    d.addCallback(self.__handleItemAnswer, request, localTimeStringToUtcDatetime(updateTime))
     return d
 
-  def __handleItemAnswer(self, val, request, updateTime):
+  def __handleItemAnswer(self, val, request, lastModified):
     # val should be a one-element-list with a dictionary describing the current object
     try:
       item = val[0]
@@ -163,9 +251,9 @@ class OpenErpModelResource(Resource):
       request.setResponseCode(404)
       request.write("No such resource.")
       request.finish()
+      return
 
     # set correct headers
-    lastModified = localTimeStringToUtcDatetime(updateTime)
     request.setHeader("Last-Modified", httpdate(lastModified))
     request.setHeader("Content-Type", "application/atom+xml")
     # compose answer
@@ -316,6 +404,7 @@ class OpenErpModelResource(Resource):
   ### error handling
 
   def __cleanup(self, err, request):
+    log.msg(err)
     request.setHeader("Content-Type", "text/plain")
     e = err.value
     if err.check(xmlrpclib.Fault):
@@ -358,6 +447,11 @@ class OpenErpModelResource(Resource):
     #  list this particular schema
     elif len(request.postpath) == 1 and request.postpath[0] == "schema":
       d.addCallback(self.__getSchema, request)
+
+    # if URI is sth. like /[dbname]/res.partner/defaults,
+    #  list this particular schema
+    elif len(request.postpath) == 1 and request.postpath[0] == "defaults":
+      d.addCallback(self.__getItemDefaults, request, pwd)
 
     # if URI is sth. like /[dbname]/res.partner/7,
     #  list this particular item
