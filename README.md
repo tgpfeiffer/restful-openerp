@@ -4,9 +4,10 @@
 
 [OpenERP](http://www.openerp.com/) is a powerful Open Source Software for Enterprise Resource Planning (ERP). It has a GTK desktop client and a web interface, both talking to the OpenERP backend via [XML-RPC](http://en.wikipedia.org/wiki/XML-RPC). This also allows to write third-party applications that use OpenERP functionality - however, not in a RESTful way.
 
-The aim of this project is to provide a RESTful "proxy" for OpenERP's XML-RPC web service. We aim to build the API in such a way that  
-a) it becomes a lot easier for third party applications to talk to OpenERP (by making the API easily understandable and providing hyperlinks to linked resources and workflows) and  
-b) to allow to make OpenERP the primary data source for services (by making results cacheable as much as possible).
+The aim of this project is to provide a RESTful "proxy" for OpenERP's XML-RPC web service. We aim to build the API in such a way that
+
+* it becomes a lot easier for third party applications to talk to OpenERP (by making the API easily understandable and providing hyperlinks to linked resources and workflows) and  
+* to allow to make OpenERP the primary data source for services (by making results cacheable as much as possible).
 
 ## Status
 
@@ -20,7 +21,8 @@ Access control is done via HTTP Basic Auth using OpenERP as backend. There is a 
 
 To illustrate:
 
-* `curl -u user:pass http://localhost:8068/erptest/res.partner` gives
+`curl -u user:pass http://localhost:8068/erptest/res.partner` gives
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
@@ -49,7 +51,9 @@ To illustrate:
   ...
 </feed>
 ```
-* `curl -u user:pass http://localhost:8068/erptest/res.partner/4` gives
+
+`curl -u user:pass http://localhost:8068/erptest/res.partner/4` gives
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
@@ -77,7 +81,9 @@ To illustrate:
   </content>
 </entry>
 ```
-* `curl -u user:pass http://localhost:8068/erptest/res.partner/schema` gives
+
+`curl -u user:pass http://localhost:8068/erptest/res.partner/schema` gives
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <element name="res_partner" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="http://localhost:8068/erptest/res.partner/schema">
