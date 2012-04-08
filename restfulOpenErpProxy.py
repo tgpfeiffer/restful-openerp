@@ -267,6 +267,8 @@ class OpenErpModelResource(Resource):
     # if an error appears while updating the type description
     return uid
 
+  ### error handling
+
   def __cleanup(self, err, request):
     request.setHeader("Content-Type", "text/plain")
     e = err.value
@@ -286,7 +288,7 @@ class OpenErpModelResource(Resource):
         request.write("An XML-RPC error occured:\n"+e.faultCode)
     else:
       request.setResponseCode(500)
-      request.write("An error occured:\n"+e.faultCode)
+      request.write("An error occured:\n"+str(e))
     request.finish()
 
   ### HTTP request handling
