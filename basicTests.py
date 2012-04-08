@@ -14,8 +14,10 @@ from twisted.web.server import Site
 from twisted.web.http_headers import Headers
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, DeferredList
 from twisted.web.client import Agent
+
+from lxml import etree
 
 from restfulOpenErpProxy import OpenErpDispatcher
 
@@ -176,22 +178,43 @@ class ResponseCodesTest(OpenErpProxyTest):
 
 class ValidResponsesTest(OpenErpProxyTest):
 
-  def _checkValidFeed(self, response):
-
-    def isValidFeed(s):
-      events = feedvalidator.validateString(s)['loggedEvents']
-      fil = "A"
-      filterFunc = getattr(compatibility, fil)
-      events = filterFunc(events)
-      output = Formatter(events)
-      if output:
-        print "\n".join(output)
-      self.assertEqual(len(output), 0)
-
+  def _checkBody(self, response, callback):
     whenFinished = Deferred()
     response.deliverBody(PrinterClient(whenFinished))
-    whenFinished.addCallback(isValidFeed)
+    whenFinished.addCallback(callback)
     return whenFinished
+
+  def _checkBodies(self, responses, callback, *params):
+    deferreds = [Deferred() for r in responses]
+    for i, (s, r) in enumerate(responses):
+      r.deliverBody(PrinterClient(deferreds[i]))
+    dl = DeferredList(deferreds)
+    dl.addCallback(callback, *params)
+    return dl
+
+  def _isValidFeed(self, s):
+    events = feedvalidator.validateString(s)['loggedEvents']
+    fil = "A"
+    filterFunc = getattr(compatibility, fil)
+    events = filterFunc(events)
+    output = Formatter(events)
+    if output:
+      print "\n".join(output)
+    self.assertEqual(len(output), 0)
+
+  def _isValidRelaxNg(self, s):
+    doc = etree.fromstring(s)
+    relaxng = etree.RelaxNG(doc)
+
+  def _isValidXml(self, ((s1, schemaxml), (s2, docxml)), node):
+    schema = etree.fromstring(schemaxml)
+    relaxng = etree.RelaxNG(schema)
+    doc = etree.fromstring(docxml).find("{http://www.w3.org/2005/Atom}content").find(node)
+    valid = relaxng.validate(doc)
+    if not valid:
+      log = relaxng.error_log
+      print log.last_error
+    self.assertTrue(valid)
 
   def test_whenAccessToProperCollectionThenValidFeed(self):
     d = self.agent.request(
@@ -199,7 +222,7 @@ class ValidResponsesTest(OpenErpProxyTest):
         'http://localhost:8068/erptest/res.partner',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
-    return d.addCallback(self._checkValidFeed)
+    return d.addCallback(self._checkBody, self._isValidFeed)
 
   def test_whenAccessToProperResourceThenValidFeed(self):
     d = self.agent.request(
@@ -207,5 +230,31 @@ class ValidResponsesTest(OpenErpProxyTest):
         'http://localhost:8068/erptest/res.partner/1',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
-    return d.addCallback(self._checkValidFeed)
+    return d.addCallback(self._checkBody, self._isValidFeed)
+
+  def test_whenAccessToProperSchemaThenValidRelaxNg(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/schema',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkBody, self._isValidRelaxNg)
+
+  def test_whenAccessToProperResourceThenValidXml(self):
+    d1 = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/schema',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    d2 = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/1',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    dl = DeferredList([d1, d2])
+    return dl.addCallback(self._checkBodies, self._isValidXml, "{http://localhost:8068/erptest/res.partner/schema}res_partner")
+
+  # to be tested:
+  # * Last-Modified header exists and is well-formed in every response
+  # * Last-Modified header for item corresponds to the <updated> field
 
