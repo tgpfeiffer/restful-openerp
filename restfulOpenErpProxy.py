@@ -267,6 +267,52 @@ class OpenErpModelResource(Resource):
     # if an error appears while updating the type description
     return uid
 
+  def __getSchema(self, uid, request):
+    if not self.desc:
+      request.setResponseCode(404)
+      request.write("Schema description not found")
+      request.finish()
+      return
+    else:
+      ns = str(request.URLPath()) + "/schema"
+      request.write('''<?xml version="1.0" encoding="utf-8"?>
+<element name="%s" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="%s">
+<interleave>
+  <element name="id"><text /></element>
+''' % (self.model.replace(".", "_"), ns))
+      for key, val in self.desc.iteritems():
+        fieldtype = val['type']
+        required = val.has_key('required') and val['required'] or False
+        request.write('  <element name="%s">\n    <attribute name="type" />' % key)
+        if fieldtype in ('many2many', 'one2many'):
+          if required:
+            elemName = "oneOrMore"
+          else:
+            elemName = "zeroOrMore"
+          request.write('\n    <%s><element name="link"><attribute name="href" /></element></%s>\n  ' % (elemName, elemName))
+        else:
+          s = ""
+          # select the correct field type
+          if fieldtype == "many2one":
+            s += '<element name="link"><attribute name="href" /></element>'
+          elif fieldtype == "float":
+            s += '<data type="double" />'
+          elif fieldtype == "boolean":
+            s += '<choice><value>True</value><value>False</value></choice>'
+          elif fieldtype == "integer":
+            s += '<data type="decimal" />'
+          else:
+            s += '<text />'
+          # optionally surround by <optional> tag
+          if required:
+            request.write('\n    '+s+'\n  ')
+          else:
+            request.write('\n    <optional>'+s+'</optional>\n  ')
+        request.write('</element>\n')
+      request.write('</interleave>\n</element>')
+      #request.write(self.desc.__repr__())
+      request.finish()
+
   ### error handling
 
   def __cleanup(self, err, request):
@@ -306,6 +352,18 @@ class OpenErpModelResource(Resource):
       d.addCallback(self.__handleLoginAnswer)
       d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getCollection, request, pwd)
+      d.addErrback(self.__cleanup, request)
+      return NOT_DONE_YET
+
+    # if URI is sth. like /[dbname]/res.partner/schema,
+    #  list this particular schema
+    elif len(request.postpath) == 1 and request.postpath[0] == "schema":
+      # login to OpenERP
+      proxyCommon = Proxy(self.openerpUrl + 'common')
+      d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+      d.addCallback(self.__handleLoginAnswer)
+      d.addCallback(self.__updateTypedesc, pwd)
+      d.addCallback(self.__getSchema, request)
       d.addErrback(self.__cleanup, request)
       return NOT_DONE_YET
 
