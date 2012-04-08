@@ -4,72 +4,120 @@
 
 [OpenERP](http://www.openerp.com/) is a powerful Open Source Software for Enterprise Resource Planning (ERP). It has a GTK desktop client and a web interface, both talking to the OpenERP backend via [XML-RPC](http://en.wikipedia.org/wiki/XML-RPC). This also allows to write third-party applications that use OpenERP functionality - however, not in a RESTful way.
 
-The aim of this project is to provide a RESTful "proxy" for OpenERP's XML-RPC web service.
+The aim of this project is to provide a RESTful "proxy" for OpenERP's XML-RPC web service. We aim to build the API in such a way that  
+a) it becomes a lot easier for third party applications to talk to OpenERP (by making the API easily understandable and providing hyperlinks to linked resources and workflows) and  
+b) to allow to make OpenERP the primary data source for services (by making results cacheable as much as possible).
 
 ## Status
 
-It is currently possible to obtain a list of objects by issuing
+Currently it is possible to get
 
-    GET /{database}/{model}
+* for all object types defined within OpenERP (e.g., `res.partner`), a list of all objects of this type at `/{database}/{model}` as an Atom feed,
+* for all object types defined within OpenERP, a complete description of each individual object at the URI specified in the above feed (usually `/{database}/{model}/{id}`) as an Atom entry,
+* for all object types defined within OpenERP, a description of the schema of this object type at `/{database}/{model}/schema` as n Relax NG XML description.
 
-For example:
+Access control is done via HTTP Basic Auth using OpenERP as backend. There is a good test coverage of HTTP response codes, XML validity etc.
 
-    $ curl -u user:pass http://localhost:8068/erptest/res.partner
-    <?xml version="1.0" encoding="utf-8"?>
-    <feed xmlns="http://www.w3.org/2005/Atom">
-      <title type="text">res.partner items</title>
-      <id>res.partner</id>
-      <updated>2012-04-07T06:53:29Z</updated>
-      <generator>PyAtom</generator>
-      <entry>
-        <title type="text">Some Partner</title>
-        <id>http://localhost:8068/erptest/res.partner/4</id>
-        <updated>2012-03-19T15:45:17Z</updated>
-        <link href="http://localhost:8068/erptest/res.partner/4" />
-        <author>
-          <name></name>
-        </author>
-      </entry>
-      ...
-    </feed>
+To illustrate:
 
-The service will respond with HTTP response code 403 if user/pass is wrong, 401 if user/pass not present, and with HTTP 500 if something went wrong.
-
-Also, single objects can be fetched at the address given in the feed. They are also formatted in an XML manner and have their respective types (char, many2one, etc.) added. Also, when objects are referenced, their URI is given instead of just the ID. For example:
-
-    $ curl -u user:pass http://localhost:8068/erptest/res.partner/1
-    <?xml version="1.0" encoding="utf-8"?>
-    <entry xmlns="http://www.w3.org/2005/Atom">
-      <content xmlns="http://localhost:8068/erptest/schema/res.partner">
-        <id>1</id>
-        <name type='char'>Some Partner Ltd.</name>
-        <ref_companies type='one2many'>
-          <item>http://localhost:8068/erptest/res.company/1</item>
-        </ref_companies>
-        <property_product_pricelist type='many2one'>http://localhost:8068/erptest/product.pricelist/1</property_product_pricelist>
-        <city type='char'>Berlin</city>
-        <address type='one2many'>
-          <item>http://localhost:8068/erptest/res.partner.address/1</item>
-        </address>
-        <active type='boolean'>True</active>
-        <lang type='selection'>de_DE</lang>
-        [...]
-      </content>
-    </entry>
+* `curl -u user:pass http://localhost:8068/erptest/res.partner` gives
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">res.partner items</title>
+  <id>http://localhost:8068/erptest/res.partner</id>
+  <updated>2012-04-07T19:28:54Z</updated>
+  <generator>PyAtom</generator>
+  <entry>
+    <title type="text">Amazon EU S.a.r.L.</title>
+    <id>http://localhost:8068/erptest/res.partner/4</id>
+    <updated>2012-03-19T15:45:17Z</updated>
+    <link href="http://localhost:8068/erptest/res.partner/4" />
+    <author>
+      <name>None</name>
+    </author>
+  </entry>
+  <entry>
+    <title type="text">DHL GmbH</title>
+    <id>http://localhost:8068/erptest/res.partner/3</id>
+    <updated>2012-03-19T15:44:59Z</updated>
+    <link href="http://localhost:8068/erptest/res.partner/3" />
+    <author>
+      <name>None</name>
+    </author>
+  </entry>
+  ...
+</feed>
+```
+* `curl -u user:pass http://localhost:8068/erptest/res.partner/4` gives
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">Amazon EU S.a.r.L.</title>
+  <id>http://localhost:8068/erptest/res.partner/4</id>
+  <updated>2012-03-19T15:45:17Z</updated>
+  <link href="http://localhost:8068/erptest/res.partner/4" rel="self" />
+  <author>
+    <name>None</name>
+  </author>
+  <content type="application/vnd.openerp+xml">
+  <res_partner xmlns="http://localhost:8068/erptest/res.partner/schema">
+    <id>4</id>
+    <name type='char'>Amazon EU S.a.r.L.</name>
+    <supplier type='boolean'>True</supplier>
+    <customer type='boolean'>False</customer>
+    <company_id type='many2one'>
+      <link href='http://localhost:8068/erptest/res.company/1' />
+    </company_id>
+    <address type='one2many'>
+      <link href="http://localhost:8068/erptest/res.partner.address/4" />
+    </address>
+    ...
+  </res_partner>
+  </content>
+</entry>
+```
+* `curl -u user:pass http://localhost:8068/erptest/res.partner/schema` gives
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<element name="res_partner" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="http://localhost:8068/erptest/res.partner/schema">
+<interleave>
+  <element name="id"><text /></element>
+  <element name="name">
+    <attribute name="type" />
+    <text />
+  </element>
+  <element name="supplier">
+    <attribute name="type" />
+    <optional><choice><value>True</value><value>False</value></choice></optional>
+  </element>
+  <element name="customer">
+    <attribute name="type" />
+    <optional><choice><value>True</value><value>False</value></choice></optional>
+  </element>
+  <element name="company_id">
+    <attribute name="type" />
+    <optional><element name="link"><attribute name="href" /></element></optional>
+  </element>
+  <element name="address">
+    <attribute name="type" />
+    <zeroOrMore><element name="link"><attribute name="href" /></element></zeroOrMore>
+  </element>
+  ...
+</interleave>
+</element>
+```
 
 ## Roadmap
 
-* <strike>Return a proper list of URIs instead of IDs and allow to obtain single objects as XML by issuing "GET /{database}/{model}/{id}".</strike> - done.
-* <strike>In the returned XML, use the URIs of referenced resources instead of just their IDs.</strike> - done.
-* <strike>Add caching for GET requests; provide an XML-RPC proxy to OpenERP for write-requests that invalidates the cache.</strike> - wontfix, put a proper HTTP cache in front.
-* Allow to add and edit resources via POST/PUT, i.e. make it a proper CRU interface (no 'D' though).
-* Create a "Level Three" webservice (cf. Webber/Parastatidis/Robinson: "REST in Practice") that includes in each reply links to related resources, thereby allowing to follow the workflows defined in OpenERP.
+See issues.
 
 ## Dependencies
 
 * [Twisted](http://twistedmatrix.com/trac/)
 * [PyAtom](https://github.com/sramana/pyatom)
 * [python-dateutil](http://labix.org/python-dateutil)
+* [lxml](http://lxml.de/)
 
 ## License
 
