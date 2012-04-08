@@ -94,7 +94,7 @@ class OpenErpModelResource(Resource):
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', [])
     d.addCallback(self.__handleCollectionAnswer, request, uid, pwd)
-    d.addErrback(self.__handleCollectionError, request)
+    return d
 
   def __handleCollectionAnswer(self, val, request, uid, pwd):
 
@@ -125,16 +125,6 @@ class OpenErpModelResource(Resource):
     d.addCallback(createFeed, request)
     return d
 
-  def __handleCollectionError(self, err, request):
-    err.trap(xmlrpclib.Fault)
-    e = err.value
-    if e.faultCode == "AccessDenied":
-      request.setResponseCode(403)
-      request.write("Bad credentials.")
-    else:
-      request.setResponseCode(500)
-      request.write("An error occured:\n"+e.faultCode)
-    request.finish()
 
   ### list one particular item of a collection
 
@@ -147,7 +137,7 @@ class OpenErpModelResource(Resource):
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId])
     d.addCallback(self.__handleItemAnswer, request)
-    d.addErrback(self.__handleItemError, request)
+    return d
 
   def __handleItemAnswer(self, val, request):
     # val should be a one-element-list with a dictionary describing the current object
@@ -228,21 +218,6 @@ class OpenErpModelResource(Resource):
     request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
     request.finish()
 
-  def __handleItemError(self, err, request):
-    err.trap(xmlrpclib.Fault)
-    e = err.value
-    if e.faultCode == "AccessDenied":
-      request.setResponseCode(403)
-      request.write("Bad credentials.")
-    elif e.faultCode.startswith("warning -- AccessError"):
-      # the above results from a xmlrpclib problem: error message in faultCode
-      request.setResponseCode(404)
-      request.write("No such resource.")
-    else:
-      request.setResponseCode(500)
-      request.write("An error occured:\n"+e.faultCode)
-    request.finish()
-
   ### update the model information
 
   def __updateTypedesc(self, uid, pwd):
@@ -264,6 +239,28 @@ class OpenErpModelResource(Resource):
     # if an error appears while updating the type description
     return uid
 
+  def __cleanup(self, err, request):
+    request.setHeader("Content-Type", "text/plain")
+    e = err.value
+    if err.check(xmlrpclib.Fault):
+      if e.faultCode == "AccessDenied":
+        request.setResponseCode(403)
+        request.write("Bad credentials.")
+      elif e.faultCode.startswith("warning -- AccessError"):
+        # the above results from a xmlrpclib problem: error message in faultCode
+        request.setResponseCode(404)
+        request.write("No such resource.")
+      elif e.faultCode.startswith("warning -- Object Error"):
+        request.setResponseCode(404)
+        request.write("No such collection.")
+      else:
+        request.setResponseCode(500)
+        request.write("An XML-RPC error occured:\n"+e.faultCode)
+    else:
+      request.setResponseCode(500)
+      request.write("An error occured:\n"+e.faultCode)
+    request.finish()
+
   ### HTTP request handling
     
   def render_GET(self, request):
@@ -278,6 +275,7 @@ class OpenErpModelResource(Resource):
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
       d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getCollection, request, pwd)
+      d.addErrback(self.__cleanup, request)
       return NOT_DONE_YET
 
     # if URI is sth. like /[dbname]/res.partner/7,
@@ -288,6 +286,7 @@ class OpenErpModelResource(Resource):
       d = proxyCommon.callRemote('login', self.dbname, user, pwd)
       d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getItem, request, pwd, request.postpath[0])
+      d.addErrback(self.__cleanup, request)
       return NOT_DONE_YET
 
     # if URI is sth. like /[dbname]/res.partner/7/something,
