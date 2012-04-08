@@ -343,48 +343,39 @@ class OpenErpModelResource(Resource):
     user = request.getUser()
     pwd = request.getPassword()
 
+    # login to OpenERP
+    proxyCommon = Proxy(self.openerpUrl + 'common')
+    d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+    d.addCallback(self.__handleLoginAnswer)
+    d.addCallback(self.__updateTypedesc, pwd)
+
     # if uri is sth. like /[dbname]/res.partner,
     #  give a list of all objects in this collection:
     if not request.postpath:
-      # login to OpenERP
-      proxyCommon = Proxy(self.openerpUrl + 'common')
-      d = proxyCommon.callRemote('login', self.dbname, user, pwd)
-      d.addCallback(self.__handleLoginAnswer)
-      d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getCollection, request, pwd)
-      d.addErrback(self.__cleanup, request)
-      return NOT_DONE_YET
 
     # if URI is sth. like /[dbname]/res.partner/schema,
     #  list this particular schema
     elif len(request.postpath) == 1 and request.postpath[0] == "schema":
-      # login to OpenERP
-      proxyCommon = Proxy(self.openerpUrl + 'common')
-      d = proxyCommon.callRemote('login', self.dbname, user, pwd)
-      d.addCallback(self.__handleLoginAnswer)
-      d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getSchema, request)
-      d.addErrback(self.__cleanup, request)
-      return NOT_DONE_YET
 
     # if URI is sth. like /[dbname]/res.partner/7,
     #  list this particular item
     elif len(request.postpath) == 1:
-      # login to OpenERP
-      proxyCommon = Proxy(self.openerpUrl + 'common')
-      d = proxyCommon.callRemote('login', self.dbname, user, pwd)
-      d.addCallback(self.__handleLoginAnswer)
-      d.addCallback(self.__updateTypedesc, pwd)
       d.addCallback(self.__getLastItemUpdate, request, pwd, request.postpath[0])
       d.addCallback(self.__getItem, request, pwd, request.postpath[0])
-      d.addErrback(self.__cleanup, request)
-      return NOT_DONE_YET
 
     # if URI is sth. like /[dbname]/res.partner/7/something,
     #  return 404
     else:    # len(request.postpath) > 1
+      d.addErrback(lambda err: None)
+      d.cancel()
       request.setResponseCode(404)
+      request.setHeader("Content-Type", "text/plain")
       return "/%s has no child resources" % ('/'.join([self.dbname, self.model, request.postpath[0]]))
+
+    d.addErrback(self.__cleanup, request)
+    return NOT_DONE_YET
 
 
 if __name__ == "__main__":
