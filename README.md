@@ -88,10 +88,10 @@ To illustrate:
 <?xml version="1.0" encoding="utf-8"?>
 <element name="res_partner" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="http://localhost:8068/erptest/res.partner/schema">
 <interleave>
-  <element name="id"><text /></element>
+  <element name="id"><data type="decimal" /></element>
   <element name="name">
     <attribute name="type" />
-    <text />
+    <data type="string"><param name="minLength">1</param></data>
   </element>
   <element name="supplier">
     <attribute name="type" />
