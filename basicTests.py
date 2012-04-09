@@ -254,6 +254,13 @@ class ValidResponsesTest(OpenErpProxyTest):
       print log.last_error
     self.assertTrue(valid)
 
+  def _isXmlButNotValid(self, ((s1, schemaxml), (s2, docxml)), node):
+    schema = etree.fromstring(schemaxml)
+    relaxng = etree.RelaxNG(schema)
+    doc = etree.fromstring(docxml).find("{http://www.w3.org/2005/Atom}content").find(node)
+    valid = relaxng.validate(doc)
+    self.assertFalse(valid)
+
   ## test collection
 
   def test_whenAccessToProperCollectionThenValidFeed(self):
@@ -308,7 +315,7 @@ class ValidResponsesTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkBody, self._isValidFeed)
 
-  def test_whenAccessToProperDefaultsThenValidXml(self):
+  def test_whenAccessToProperDefaultsThenXmlButNotValid(self):
     d1 = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner/schema',
@@ -320,7 +327,7 @@ class ValidResponsesTest(OpenErpProxyTest):
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     dl = DeferredList([d1, d2])
-    return dl.addCallback(self._checkBodies, self._isValidXml, "{http://localhost:8068/erptest/res.partner/schema}res_partner")
+    return dl.addCallback(self._checkBodies, self._isXmlButNotValid, "{http://localhost:8068/erptest/res.partner/schema}res_partner")
 
   # to be tested:
   # * Last-Modified header exists and is well-formed in every response
