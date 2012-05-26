@@ -108,7 +108,7 @@ class OpenErpModelResource(Resource):
                              #feed_url=str(request.URLPath())
                              )
       for item in items:
-        if item['user_id']:
+        if item.has_key('user_id') and item['user_id']:
           feed.add(title=item['name'],
                  url="%s/%s" % (request.URLPath(), item['id']),
                  updated=localTimeStringToUtcDatetime(item['__last_update']),

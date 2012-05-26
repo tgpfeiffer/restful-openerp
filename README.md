@@ -120,7 +120,7 @@ See issues.
 
 ## Dependencies
 
-* [Twisted](http://twistedmatrix.com/trac/)
+* [Twisted](http://twistedmatrix.com/trac/) >= 10.1
 * [PyAtom](https://github.com/sramana/pyatom)
 * [python-dateutil](http://labix.org/python-dateutil)
 * [lxml](http://lxml.de/)
