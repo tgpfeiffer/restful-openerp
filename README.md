@@ -125,6 +125,19 @@ See issues.
 * [python-dateutil](http://labix.org/python-dateutil)
 * [lxml](http://lxml.de/)
 
+## Installation
+
+To install restful-openerp in a Python virtualenv, do as follows:
+
+* `git clone git://github.com/tgpfeiffer/restful-openerp.git`
+* `cd restful-openerp/`
+* `virtualenv --no-site-packages .env`
+* `. .env/bin/activate`
+* `pip install twisted pyatom python-dateutil lxml` (note that you will have to have libxslt1-dev and libxml2-dev installed to build lxml)
+* `cp restful-openerp.cfg.default restful-openerp.cfg` and edit `restful-openerp.cfg` to contain the proper URL of your OpenERP XML-RPC endpoint (default: a locally running instance). If you want to run the unit tests, also give a valid username/password for your OpenERP instance in there.
+* `trial basicTests` should now run a list of unit tests (that hopefully all pass)
+* `python restfulOpenErpProxy.py` runs the actual server process
+
 ## License
 
 AGPLv3 for now. Will maybe change later.
