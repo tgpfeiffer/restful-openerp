@@ -119,7 +119,7 @@ class OpenErpModelResource(Resource):
                  updated=localTimeStringToUtcDatetime(item['__last_update']),
                  author=[{'name': 'None'}])
       request.setHeader("Content-Type", "application/atom+xml")
-      request.write(str(feed.to_string()))
+      request.write(str(feed.to_string().encode('utf-8')))
       request.finish()
 
     proxy = Proxy(self.openerpUrl + 'object')
