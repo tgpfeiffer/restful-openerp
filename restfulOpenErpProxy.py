@@ -93,8 +93,15 @@ class OpenErpModelResource(Resource):
   def __getCollection(self, uid, request, pwd):
     """This is called after successful login to list the items
     of a certain collection, e.g. all res.partners."""
+    params = []
+    for key, vals in request.args.iteritems():
+      if not self.desc.has_key(key) and key != "id":
+        raise KeyError("field '%s' not present in model '%s'" % (key, self.model))
+      else:
+        params.append((key, '=', vals[0]))
+    print params
     proxy = Proxy(self.openerpUrl + 'object')
-    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', [])
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', params)
     d.addCallback(self.__handleCollectionAnswer, request, uid, pwd)
     return d
 
