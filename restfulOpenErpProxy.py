@@ -96,7 +96,7 @@ class OpenErpModelResource(Resource):
     params = []
     for key, vals in request.args.iteritems():
       if not self.desc.has_key(key) and key != "id":
-        raise KeyError("field '%s' not present in model '%s'" % (key, self.model))
+        raise InvalidParameter("field '%s' not present in model '%s'" % (key, self.model))
       else:
         params.append((key, '=', vals[0]))
     print params
@@ -427,6 +427,9 @@ class OpenErpModelResource(Resource):
       else:
         request.setResponseCode(500)
         request.write("An XML-RPC error occured:\n"+e.faultCode)
+    elif e.__class__ == InvalidParameter:
+      request.setResponseCode(400)
+      request.write(str(e))
     else:
       request.setResponseCode(500)
       request.write("An error occured:\n"+str(e))
@@ -476,6 +479,13 @@ class OpenErpModelResource(Resource):
 
     d.addErrback(self.__cleanup, request)
     return NOT_DONE_YET
+
+
+class InvalidParameter(Exception):
+  def __init__(self, msg):
+    self.msg = msg
+  def __str__(self):
+    return "Invalid parameter: "+str(self.msg)
 
 
 if __name__ == "__main__":
