@@ -99,7 +99,6 @@ class OpenErpModelResource(Resource):
         raise InvalidParameter("field '%s' not present in model '%s'" % (key, self.model))
       else:
         params.append((key, '=', vals[0]))
-    print params
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', params)
     d.addCallback(self.__handleCollectionAnswer, request, uid, pwd)

@@ -101,6 +101,22 @@ class ResponseCodesTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 200)
 
+  def test_whenAccessToProperCollectionWithGoodFilterThen200(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner?name=Test',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 200)
+
+  def test_whenAccessToProperCollectionWithBadFilterThen400(self):
+    d = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner?xyz=Test',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d.addCallback(self._checkResponseCode, 400)
+
   def test_whenAccessToNonExistingCollectionThen404(self):
     d = self.agent.request(
         'GET',
