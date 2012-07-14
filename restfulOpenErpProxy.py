@@ -263,7 +263,7 @@ class OpenErpModelResource(Resource):
     request.setHeader("Last-Modified", httpdate(lastModified))
     request.setHeader("Content-Type", "application/atom+xml")
     # compose answer
-    request.write('''<?xml version="1.0" encoding="utf-8"?>
+    xmlHead = u'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <title type="text">%s</title>
   <id>%s</id>
@@ -281,7 +281,8 @@ class OpenErpModelResource(Resource):
        'None', # TODO: insert author, if present
        self.model.replace('.', '_'),
        '/'.join(str(request.URLPath()).split("/") + ["schema"]),
-       ))
+       )
+    request.write(xmlHead.encode('utf-8'))
     # loop over the fields of the current object
     for key, value in item.iteritems():
       # key is the name of the field, value is the content,
@@ -320,13 +321,13 @@ class OpenErpModelResource(Resource):
           request.write("    <%s type='%s'>%s</%s>\n" % (
             key,
             fieldtype,
-            xmlescape(str(value)),
+            xmlescape(unicode(value).encode('utf-8')),
             key)
           )
       else: # no type given or no self.desc present
         request.write("    <%s>%s</%s>\n" % (
           key,
-          xmlescape(str(value)),
+          xmlescape(unicode(value).encode('utf-8')),
           key)
         )
     request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
