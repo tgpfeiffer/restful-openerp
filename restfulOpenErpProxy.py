@@ -244,8 +244,19 @@ class OpenErpModelResource(Resource):
       modelId = int(modelId)
     except:
       modelId = -1
+    # we add 'context' parameters, like 'lang' or 'tz'
+    params = {}
+    for key, vals in request.args.iteritems():
+      try:
+        val = int(vals[0])
+      except:
+        val = vals[0]
+      params[key] = val
+      if key == "active_id":
+        params["active_ids"] = [val]
+    # issue the request
     proxy = Proxy(self.openerpUrl + 'object')
-    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId])
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [], params)
     d.addCallback(self.__handleItemAnswer, request, localTimeStringToUtcDatetime(updateTime))
     return d
 
