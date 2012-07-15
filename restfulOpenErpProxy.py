@@ -412,6 +412,44 @@ class OpenErpModelResource(Resource):
     # if an error appears while updating the type description
     return uid
 
+  def __desc2relaxNG(self, path, desc):
+    ns = path + "/schema"
+    xml = '''<?xml version="1.0" encoding="utf-8"?>
+<element name="%s" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="%s">
+<interleave>
+  <element name="id"><data type="decimal" /></element>
+''' % (self.model.replace(".", "_"), ns)
+    for key, val in desc.iteritems():
+      fieldtype = val['type']
+      required = val.has_key('required') and val['required'] or False
+      xml += ('  <element name="%s">\n    <attribute name="type" />' % key)
+      if fieldtype in ('many2many', 'one2many'):
+        elemName = required and "oneOrMore" or "zeroOrMore"
+        xml += ('\n    <%s><element name="link"><attribute name="href" /></element></%s>\n  ' % (elemName, elemName))
+      else:
+        output = "\n    "
+        # select the correct field type
+        if fieldtype == "many2one":
+          s = '<element name="link"><attribute name="href" /></element>'
+          output += required and s or "<optional>"+s+"</optional>"
+        elif fieldtype == "float":
+          s = '<data type="double" />'
+          output += required and s or "<optional>"+s+"</optional>"
+        elif fieldtype == "boolean":
+          s = '<choice><value>True</value><value>False</value></choice>'
+          output += required and s or "<optional>"+s+"</optional>"
+        elif fieldtype == "integer":
+          s = '<data type="decimal" />'
+          output += required and s or "<optional>"+s+"</optional>"
+        else:
+          s = required and '<data type="string"><param name="minLength">1</param></data>' or \
+            "<optional><text /></optional>"
+          output += s
+        xml += (output+'\n  ')
+      xml += '</element>\n'
+    xml += '</interleave>\n</element>'
+    return xml
+
   def __getSchema(self, uid, request):
     hello()
     if not self.desc:
@@ -420,42 +458,7 @@ class OpenErpModelResource(Resource):
       request.finish()
       return
     else:
-      ns = str(request.URLPath()) + "/schema"
-      request.write('''<?xml version="1.0" encoding="utf-8"?>
-<element name="%s" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="%s">
-<interleave>
-  <element name="id"><data type="decimal" /></element>
-''' % (self.model.replace(".", "_"), ns))
-      for key, val in self.desc.iteritems():
-        fieldtype = val['type']
-        required = val.has_key('required') and val['required'] or False
-        request.write('  <element name="%s">\n    <attribute name="type" />' % key)
-        if fieldtype in ('many2many', 'one2many'):
-          elemName = required and "oneOrMore" or "zeroOrMore"
-          request.write('\n    <%s><element name="link"><attribute name="href" /></element></%s>\n  ' % (elemName, elemName))
-        else:
-          output = "\n    "
-          # select the correct field type
-          if fieldtype == "many2one":
-            s = '<element name="link"><attribute name="href" /></element>'
-            output += required and s or "<optional>"+s+"</optional>"
-          elif fieldtype == "float":
-            s = '<data type="double" />'
-            output += required and s or "<optional>"+s+"</optional>"
-          elif fieldtype == "boolean":
-            s = '<choice><value>True</value><value>False</value></choice>'
-            output += required and s or "<optional>"+s+"</optional>"
-          elif fieldtype == "integer":
-            s = '<data type="decimal" />'
-            output += required and s or "<optional>"+s+"</optional>"
-          else:
-            s = required and '<data type="string"><param name="minLength">1</param></data>' or \
-              "<optional><text /></optional>"
-            output += s
-          request.write(output+'\n  ')
-        request.write('</element>\n')
-      request.write('</interleave>\n</element>')
-      #request.write(self.desc.__repr__())
+      request.write(self.__desc2relaxNG(str(request.URLPath()), self.desc))
       request.finish()
 
   ### error handling
