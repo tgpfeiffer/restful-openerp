@@ -10,6 +10,8 @@
 import os, sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect
 from xml.sax.saxutils import escape as xmlescape
 
+from lxml import etree
+
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import *
 from twisted.internet import reactor, task
@@ -365,8 +367,17 @@ class OpenErpModelResource(Resource):
     hello()
     if not self.desc:
       raise xmlrpclib.Fault("warning -- Object Error", "no such collection")
-    else:
-      raise NotImplementedException()
+    # check whether we got well-formed XML
+    try:
+      doc = etree.fromstring(request.content.read())
+    except Exception as e:
+      request.setResponseCode(400)
+      request.write("malformed XML: "+str(e))
+      request.finish()
+      return
+    # TODO: check whether we got valid XML with the given schema
+    # TODO: transform XML content into XML-RPC call
+    raise NotImplementedError
 
   ### handle login
 

@@ -9,14 +9,35 @@
 
 from lxml import etree
 
+from zope.interface import implements
+
 from twisted.web.http_headers import Headers
 from twisted.internet.defer import Deferred, DeferredList
+from twisted.internet.defer import succeed
+from twisted.web.iweb import IBodyProducer
 
 import feedvalidator
 from feedvalidator import compatibility
 from feedvalidator.formatter.text_plain import Formatter
 
 from tests import OpenErpProxyTest, PrinterClient
+
+class StringProducer(object):
+  implements(IBodyProducer)
+
+  def __init__(self, body):
+    self.body = body
+    self.length = len(body)
+
+  def startProducing(self, consumer):
+    consumer.write(self.body)
+    return succeed(None)
+
+  def pauseProducing(self):
+    pass
+
+  def stopProducing(self):
+    pass
 
 class PostResponseCodesTest(OpenErpProxyTest):
 
@@ -106,5 +127,25 @@ class PostResponseCodesTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 400)
 
-  # NB. we do not have a test for "whenAccessToProperCollection" since
+  # NB. we do not have a simple test for "whenAccessToProperCollection" since
   #  this situation is much more difficult
+
+class PostCorrectValidationsTest(OpenErpProxyTest):
+
+  def _checkResponse(self, response, code, value):
+    self.assertEqual(response.code, code)
+    whenFinished = Deferred()
+    response.deliverBody(PrinterClient(whenFinished))
+    # check for responseBody.startswith(value):
+    whenFinished.addCallback(lambda x: self.assertEqual(x[:len(value)], value))
+    return whenFinished
+
+  def test_whenMalformedXmlThen400(self):
+    xml = """<entry></content>"""
+    d = self.agent.request(
+        'POST',
+        'http://localhost:8068/erptest/res.partner',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        StringProducer(xml))
+    return d.addCallback(self._checkResponse, 400, "malformed XML")
+
