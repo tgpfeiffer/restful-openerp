@@ -40,6 +40,9 @@ class PrinterClient(Protocol):
 
 class OpenErpProxyTest(unittest.TestCase):
 
+  def _checkResponseCode(self, response, code):
+    self.assertEqual(response.code, code)
+
   def setUp(self):
     # read config
     config = ConfigParser.RawConfigParser()
@@ -61,10 +64,7 @@ class OpenErpProxyTest(unittest.TestCase):
     return self.server.stopListening()
 
 
-class ResponseCodesTest(OpenErpProxyTest):
-
-  def _checkResponseCode(self, response, code):
-    self.assertEqual(response.code, code)
+class GetResponseCodesTest(OpenErpProxyTest):
   
   def test_whenNoBasicAuthThen401(self):
     d = self.agent.request(
@@ -229,8 +229,7 @@ class ResponseCodesTest(OpenErpProxyTest):
         None)
     return d.addCallback(self._checkResponseCode, 403)
 
-
-class ValidResponsesTest(OpenErpProxyTest):
+class GetValidResponsesTest(OpenErpProxyTest):
 
   def _checkBody(self, response, callback):
     whenFinished = Deferred()
