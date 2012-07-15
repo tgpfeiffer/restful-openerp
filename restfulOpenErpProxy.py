@@ -372,7 +372,15 @@ class OpenErpModelResource(Resource):
       request.write("malformed XML: "+str(e))
       request.finish()
       return
-    # TODO: check whether we got valid XML with the given schema
+    # check whether we got valid XML with the given schema
+    schemaxml = self.__desc2relaxNG(str(request.URLPath()), self.desc)
+    schema = etree.fromstring(schemaxml)
+    relaxng = etree.RelaxNG(schema)
+    if not relaxng.validate(doc):
+      request.setResponseCode(400)
+      request.write("invalid XML: "+str(relaxng.error_log))
+      request.finish()
+      return
     # TODO: transform XML content into XML-RPC call
     raise NotImplementedError
 

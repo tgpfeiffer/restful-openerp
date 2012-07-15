@@ -149,3 +149,12 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
         StringProducer(xml))
     return d.addCallback(self._checkResponse, 400, "malformed XML")
 
+  def test_whenInvalidXmlThen400(self):
+    xml = """<res_partner xmlns="http://localhost:8068/erptest/res.partner/schema"></res_partner>"""
+    d = self.agent.request(
+        'POST',
+        'http://localhost:8068/erptest/res.partner',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        StringProducer(xml))
+    return d.addCallback(self._checkResponse, 400, "invalid XML")
+
