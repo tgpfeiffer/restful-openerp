@@ -373,15 +373,24 @@ class OpenErpModelResource(Resource):
       request.finish()
       return
     # check whether we got valid XML with the given schema
+    ns = str(request.URLPath()) + "/schema"
     schemaxml = self.__desc2relaxNG(str(request.URLPath()), self.desc)
     schema = etree.fromstring(schemaxml)
     relaxng = etree.RelaxNG(schema)
+    # to validate doc, we need to set "id" to a numeric value
+    try:
+      doc.find("{%s}id" % ns).text = "-1"
+    except:
+      pass
     if not relaxng.validate(doc):
       request.setResponseCode(400)
-      request.write("invalid XML: "+str(relaxng.error_log))
+      err = relaxng.error_log
+      request.write("invalid XML:\n"+str(err))
       request.finish()
       return
     # TODO: transform XML content into XML-RPC call
+    # TODO: get all non-empty (should be: non-default) nodes
+    # TODO: compose the XML-RPC call from them
     raise NotImplementedError
 
   ### handle login

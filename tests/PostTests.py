@@ -132,13 +132,15 @@ class PostResponseCodesTest(OpenErpProxyTest):
 
 class PostCorrectValidationsTest(OpenErpProxyTest):
 
-  def _checkResponse(self, response, code, value):
-    self.assertEqual(response.code, code)
+  def _doSomethingWithBody(self, response, callback):
     whenFinished = Deferred()
     response.deliverBody(PrinterClient(whenFinished))
-    # check for responseBody.startswith(value):
-    whenFinished.addCallback(lambda x: self.assertEqual(x[:len(value)], value))
+    whenFinished.addCallback(callback)
     return whenFinished
+
+  def _checkResponse(self, response, code, value):
+    # check for responseBody.startswith(value):
+    return self._doSomethingWithBody(response, lambda x: self.assertEqual(x[:len(value)], value))
 
   def test_whenMalformedXmlThen400(self):
     xml = """<entry></content>"""
@@ -156,5 +158,23 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
         'http://localhost:8068/erptest/res.partner',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         StringProducer(xml))
-    return d.addCallback(self._checkResponse, 400, "invalid XML")
+    return d.addCallback(self._checkResponse, 400, "invalid XML:\n<string>:1:0:ERROR:RELAXNGV:RELAXNG_ERR_NOELEM: Expecting an element id, got nothing")
+
+  def test_whenDefaultsThen400(self):
+    def makeNextCall(xml):
+      content = etree.tostring(etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/erptest/res.partner/schema}res_partner"))
+      d = self.agent.request(
+          'POST',
+          'http://localhost:8068/erptest/res.partner',
+          Headers({'Authorization': ['Basic %s' % self.basic]}),
+          StringProducer(content))
+      # will fail validation at mandatory, not-given fields
+      return d.addCallback(self._checkResponse, 400, "invalid XML:\n<string>:48:0:ERROR:RELAXNGV:RELAXNG_ERR_DATATYPE: Error validating datatype string")
+
+    d1 = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner/defaults',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d1.addCallback(self._doSomethingWithBody, makeNextCall)
 
