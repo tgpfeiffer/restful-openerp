@@ -7,7 +7,7 @@
 # the terms of the GNU Affero General Public License version 3 as published by
 # the Free Software Foundation.
 
-import os, sys, xmlrpclib, ConfigParser, datetime, dateutil.tz
+import os, sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect
 from xml.sax.saxutils import escape as xmlescape
 
 from twisted.web.server import Site, NOT_DONE_YET
@@ -17,6 +17,12 @@ from twisted.python import log
 from twisted.web.xmlrpc import Proxy
 
 import pyatom
+
+def hello():
+  """If you wanted, you could log some message from here to understand the
+call stack a bit better..."""
+  stack = inspect.stack()
+  parent = stack[1][3]
 
 def localTimeStringToUtcDatetime(s):
   # get local and UTC timezone to convert the time stamps
@@ -93,6 +99,7 @@ class OpenErpModelResource(Resource):
   def __getCollection(self, uid, request, pwd):
     """This is called after successful login to list the items
     of a certain collection, e.g. all res.partners."""
+    hello()
     params = []
     for key, vals in request.args.iteritems():
       if not self.desc.has_key(key) and key != "id":
@@ -105,6 +112,7 @@ class OpenErpModelResource(Resource):
     return d
 
   def __handleCollectionAnswer(self, val, request, uid, pwd):
+    hello()
 
     def createFeed(items, request):
       # build a feed
@@ -136,6 +144,7 @@ class OpenErpModelResource(Resource):
   ### get __last_update of a collection item
 
   def __getLastItemUpdate(self, uid, request, pwd, modelId):
+    hello()
     # make sure we're dealing with an integer id
     try:
       modelId = int(modelId)
@@ -151,12 +160,14 @@ class OpenErpModelResource(Resource):
   ### list the default values for an item
 
   def __getItemDefaults(self, uid, request, pwd):
+    hello()
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
     d.addCallback(self.__handleItemDefaultsAnswer, request)
     return d
 
   def __handleItemDefaultsAnswer(self, item, request):
+    hello()
     # set correct headers
     request.setHeader("Content-Type", "application/atom+xml")
     # compose answer
@@ -239,6 +250,7 @@ class OpenErpModelResource(Resource):
   ### list one particular item of a collection
 
   def __getItem(self, (uid, updateTime), request, pwd, modelId):
+    hello()
     # make sure we're dealing with an integer id
     try:
       modelId = int(modelId)
@@ -261,6 +273,7 @@ class OpenErpModelResource(Resource):
     return d
 
   def __handleItemAnswer(self, val, request, lastModified):
+    hello()
     # val should be a one-element-list with a dictionary describing the current object
     try:
       item = val[0]
@@ -347,6 +360,7 @@ class OpenErpModelResource(Resource):
   ### handle login
 
   def __handleLoginAnswer(self, uid):
+    hello()
     if not uid:
       raise xmlrpclib.Fault("AccessDenied", "login failed")
     else:
@@ -355,6 +369,7 @@ class OpenErpModelResource(Resource):
   ### update the model information
 
   def __updateTypedesc(self, uid, pwd):
+    hello()
     if not self.desc:
       # update type description
       proxy = Proxy(self.openerpUrl + 'object')
@@ -366,14 +381,17 @@ class OpenErpModelResource(Resource):
       return uid
 
   def __handleTypedescAnswer(self, val, uid):
+    hello()
     self.desc = val
     return uid
 
   def __handleTypedescError(self, err, uid):
+    hello()
     # if an error appears while updating the type description
     return uid
 
   def __getSchema(self, uid, request):
+    hello()
     if not self.desc:
       request.setResponseCode(404)
       request.write("Schema description not found")
@@ -421,6 +439,7 @@ class OpenErpModelResource(Resource):
   ### error handling
 
   def __cleanup(self, err, request):
+    hello()
     log.msg(err)
     request.setHeader("Content-Type", "text/plain")
     e = err.value
@@ -456,6 +475,7 @@ It only throws the given exception."""
   ### HTTP request handling
     
   def render_GET(self, request):
+    hello()
     user = request.getUser()
     pwd = request.getPassword()
 
