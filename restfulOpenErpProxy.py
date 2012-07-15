@@ -168,12 +168,8 @@ class OpenErpModelResource(Resource):
     d.addCallback(self.__handleItemDefaultsAnswer, request)
     return d
 
-  def __handleItemDefaultsAnswer(self, item, request):
-    hello()
-    # set correct headers
-    request.setHeader("Content-Type", "application/atom+xml")
-    # compose answer
-    request.write('''<?xml version="1.0" encoding="utf-8"?>
+  def __mkDefaultXml(self, path, desc, item):
+    xml = '''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <title type="text">Defaults for %s</title>
   <id>%s</id>
@@ -186,67 +182,68 @@ class OpenErpModelResource(Resource):
   <%s xmlns="%s">
     <id />
 ''' % (self.model,
-       str(request.URLPath())+"/defaults",
+       path+"/defaults",
        datetime.datetime.utcnow().isoformat()[:-7]+'Z',
-       str(request.URLPath())+"/defaults",
+       path+"/defaults",
        'None',
        self.model.replace('.', '_'),
-       '/'.join(str(request.URLPath()).split("/") + ["schema"]),
-       ))
+       '/'.join(path.split("/") + ["schema"]),
+       )
     # loop over the fields of the current object
-    for key in self.desc.iterkeys():
+    for key in desc.iterkeys():
       value = item.has_key(key) and item[key] or ""
       # key is the name of the field, value is the content,
       #  e.g. key="email", value="me@privacy.net"
-      if self.desc.has_key(key):
-        fieldtype = self.desc[key]['type']
-        # if we have an empty field, we display a closed tag
-        #  (except if this is a boolean field)
-        if not value and fieldtype != "boolean":
-          request.write("    <%s type='%s' />\n" % (
-            key,
-            fieldtype)
-          )
-        # display URIs for many2one fields
-        elif fieldtype == 'many2one':
-          request.write("    <%s type='%s'>\n      <link href='%s' />\n    </%s>\n" % (
-            key,
-            fieldtype,
-            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value)]),
-            key)
-          )
-        # display URIs for *2many fields, wrapped by <item>
-        elif fieldtype in ('one2many', 'many2many'):
-          request.write("    <%s type='%s'>%s</%s>\n" % (
-            key,
-            fieldtype,
-            ''.join(
-              ['\n      <link href="' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
-            ) + '\n    ',
-            key)
-          )
-        # for other fields, just output the data
-        elif fieldtype == 'boolean':
-          request.write("    <%s type='%s'>%s</%s>\n" % (
-            key,
-            fieldtype,
-            xmlescape(str(value and "True" or "False")),
-            key)
-          )
-        else:
-          request.write("    <%s type='%s'>%s</%s>\n" % (
-            key,
-            fieldtype,
-            xmlescape(str(value)),
-            key)
-          )
-      else: # no type given or no self.desc present
-        request.write("    <%s>%s</%s>\n" % (
+      fieldtype = desc[key]['type']
+      # if we have an empty field, we display a closed tag
+      #  (except if this is a boolean field)
+      if not value and fieldtype != "boolean":
+        xml += ("    <%s type='%s' />\n" % (
           key,
+          fieldtype)
+        )
+      # display URIs for many2one fields
+      elif fieldtype == 'many2one':
+        xml += ("    <%s type='%s'>\n      <link href='%s' />\n    </%s>\n" % (
+          key,
+          fieldtype,
+          '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"], str(value)]),
+          key)
+        )
+      # display URIs for *2many fields, wrapped by <item>
+      elif fieldtype in ('one2many', 'many2many'):
+        xml += ("    <%s type='%s'>%s</%s>\n" % (
+          key,
+          fieldtype,
+          ''.join(
+            ['\n      <link href="' + '/'.join(path.split("/")[:-1] + [desc[key]["relation"], str(v)]) + '" />' for v in value]
+          ) + '\n    ',
+          key)
+        )
+      # for other fields, just output the data
+      elif fieldtype == 'boolean':
+        xml += ("    <%s type='%s'>%s</%s>\n" % (
+          key,
+          fieldtype,
+          xmlescape(str(value and "True" or "False")),
+          key)
+        )
+      else:
+        xml += ("    <%s type='%s'>%s</%s>\n" % (
+          key,
+          fieldtype,
           xmlescape(str(value)),
           key)
         )
-    request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
+    xml += ("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
+    return xml
+
+  def __handleItemDefaultsAnswer(self, item, request):
+    hello()
+    # set correct headers
+    request.setHeader("Content-Type", "application/atom+xml")
+    # compose answer
+    request.write(self.__mkDefaultXml(str(request.URLPath()), self.desc, item))
     request.finish()
 
   ### list one particular item of a collection
