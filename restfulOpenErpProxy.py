@@ -438,13 +438,20 @@ class OpenErpModelResource(Resource):
       else:
         request.setResponseCode(500)
         request.write("An XML-RPC error occured:\n"+e.faultCode)
-    elif e.__class__ == InvalidParameter:
-      request.setResponseCode(400)
+    elif e.__class__ in (InvalidParameter, NoChildResources):
+      request.setResponseCode(e.code)
       request.write(str(e))
     else:
       request.setResponseCode(500)
       request.write("An error occured:\n"+str(e))
     request.finish()
+
+  def __raiseAnError(self, *params):
+    """This function is necessary as errors are only caught by errbacks
+if they are thrown from within callbacks, not directly from render_GET.
+It only throws the given exception."""
+    e = params[-1]
+    raise e
 
   ### HTTP request handling
     
@@ -482,21 +489,26 @@ class OpenErpModelResource(Resource):
     # if URI is sth. like /[dbname]/res.partner/7/something,
     #  return 404
     else:    # len(request.postpath) > 1
-      d.addErrback(lambda err: None)
-      d.cancel()
-      request.setResponseCode(404)
-      request.setHeader("Content-Type", "text/plain")
-      return "/%s has no child resources" % ('/'.join([self.dbname, self.model, request.postpath[0]]))
+      d.addCallback(self.__raiseAnError,
+        NoChildResources("/" + '/'.join([self.dbname, self.model, request.postpath[0]])))
 
     d.addErrback(self.__cleanup, request)
     return NOT_DONE_YET
 
 
 class InvalidParameter(Exception):
-  def __init__(self, msg):
-    self.msg = msg
+  code = 400
+  def __init__(self, param):
+    self.param = param
   def __str__(self):
-    return "Invalid parameter: "+str(self.msg)
+    return "Invalid parameter: "+str(self.param)
+
+class NoChildResources(Exception):
+  code = 404
+  def __init__(self, res):
+    self.res = res
+  def __str__(self):
+    return str(self.res) + " has no child resources"
 
 
 if __name__ == "__main__":
