@@ -7,62 +7,16 @@
 # the terms of the GNU Affero General Public License version 3 as published by
 # the Free Software Foundation.
 
-import os, sys, xmlrpclib, ConfigParser
-
-from twisted.trial import unittest
-from twisted.web.server import Site
-from twisted.web.http_headers import Headers
-from twisted.internet import reactor
-from twisted.internet.protocol import Protocol
-from twisted.internet.defer import Deferred, DeferredList
-from twisted.web.client import Agent
-
 from lxml import etree
 
-from restfulOpenErpProxy import OpenErpDispatcher
+from twisted.web.http_headers import Headers
+from twisted.internet.defer import Deferred, DeferredList
 
 import feedvalidator
 from feedvalidator import compatibility
 from feedvalidator.formatter.text_plain import Formatter
 
-# NB. to be run with 'trial' from the twisted test suite
-
-class PrinterClient(Protocol):
-  def __init__(self, whenFinished):
-    self.whenFinished = whenFinished
-    self.buffer = ""
-
-  def dataReceived(self, bytes):
-    self.buffer += bytes
-
-  def connectionLost(self, reason):
-    self.whenFinished.callback(self.buffer)
-
-class OpenErpProxyTest(unittest.TestCase):
-
-  def _checkResponseCode(self, response, code):
-    self.assertEqual(response.code, code)
-
-  def setUp(self):
-    # read config
-    config = ConfigParser.RawConfigParser()
-    config.read(os.path.join(sys.path[0], 'restful-openerp.cfg'))
-    openerpUrl = config.get("OpenERP", "url")
-    self.user = config.get("Tests", "user")
-    self.password = config.get("Tests", "password")
-    self.basic = (self.user+":"+self.password).encode('base64')
-    # start listening
-    root = OpenErpDispatcher(openerpUrl)
-    self.factory = Site(root)
-    self.server = reactor.listenTCP(8068, self.factory)
-    self.client = None
-    self.agent = Agent(reactor)
-
-  def tearDown(self):
-    if self.client is not None:
-      self.client.transport.loseConnection()
-    return self.server.stopListening()
-
+from tests import OpenErpProxyTest, PrinterClient
 
 class GetResponseCodesTest(OpenErpProxyTest):
   
@@ -347,4 +301,3 @@ class GetValidResponsesTest(OpenErpProxyTest):
   # to be tested:
   # * Last-Modified header exists and is well-formed in every response
   # * Last-Modified header for item corresponds to the <updated> field
-
