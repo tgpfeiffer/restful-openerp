@@ -357,6 +357,17 @@ class OpenErpModelResource(Resource):
     request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
     request.finish()
 
+  ### handle inserts into collection
+
+  def __addToCollection(self, uid, request, pwd):
+    """This is called after successful login to add an items
+    to a certain collection, e.g. a new res.partner."""
+    hello()
+    if not self.desc:
+      raise xmlrpclib.Fault("warning -- Object Error", "no such collection")
+    else:
+      raise NotImplementedException()
+
   ### handle login
 
   def __handleLoginAnswer(self, uid):
@@ -457,7 +468,7 @@ class OpenErpModelResource(Resource):
       else:
         request.setResponseCode(500)
         request.write("An XML-RPC error occured:\n"+e.faultCode)
-    elif e.__class__ in (InvalidParameter, NoChildResources):
+    elif e.__class__ in (InvalidParameter, PostNotPossible, NoChildResources):
       request.setResponseCode(e.code)
       request.write(str(e))
     else:
@@ -515,6 +526,31 @@ It only throws the given exception."""
     d.addErrback(self.__cleanup, request)
     return NOT_DONE_YET
 
+  def render_POST(self, request):
+    hello()
+    user = request.getUser()
+    pwd = request.getPassword()
+
+    # login to OpenERP
+    proxyCommon = Proxy(self.openerpUrl + 'common')
+    d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+    d.addCallback(self.__handleLoginAnswer)
+    d.addCallback(self.__updateTypedesc, pwd)
+
+    # if uri is sth. like /[dbname]/res.partner,
+    #  POST creates an entry in this collection:
+    if not request.postpath:
+      d.addCallback(self.__addToCollection, request, pwd)
+
+    # if URI is sth. like /[dbname]/res.partner/something,
+    #  return 400, cannot POST here
+    else:
+      d.addCallback(self.__raiseAnError,
+        PostNotPossible("/" + '/'.join([self.dbname, self.model, request.postpath[0]])))
+
+    d.addErrback(self.__cleanup, request)
+    return NOT_DONE_YET
+
 
 class InvalidParameter(Exception):
   code = 400
@@ -522,6 +558,13 @@ class InvalidParameter(Exception):
     self.param = param
   def __str__(self):
     return "Invalid parameter: "+str(self.param)
+
+class PostNotPossible(Exception):
+  code = 400
+  def __init__(self, res):
+    self.res = res
+  def __str__(self):
+    return "You cannot POST to "+str(self.res)
 
 class NoChildResources(Exception):
   code = 404
