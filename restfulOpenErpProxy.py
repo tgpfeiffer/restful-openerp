@@ -180,10 +180,11 @@ class OpenErpModelResource(Resource):
 
   def __getItemDefaults(self, uid, request, pwd):
     hello()
-    proxy = Proxy(self.openerpUrl + 'object')
-    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
-    d.addCallback(self.__handleItemDefaultsAnswer, request)
-    return d
+    # set correct headers
+    request.setHeader("Content-Type", "application/atom+xml")
+    # compose answer
+    request.write(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults))
+    request.finish()
 
   def __mkDefaultXml(self, path, desc, item):
     xml = '''<?xml version="1.0" encoding="utf-8"?>
@@ -254,14 +255,6 @@ class OpenErpModelResource(Resource):
         )
     xml += ("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
     return xml
-
-  def __handleItemDefaultsAnswer(self, item, request):
-    hello()
-    # set correct headers
-    request.setHeader("Content-Type", "application/atom+xml")
-    # compose answer
-    request.write(self.__mkDefaultXml(str(request.URLPath()), self.desc, item))
-    request.finish()
 
   ### list one particular item of a collection
 
@@ -375,14 +368,7 @@ class OpenErpModelResource(Resource):
 
   ### handle inserts into collection
 
-  def __getDefaultsAndAdd(self, uid, request, pwd):
-    hello()
-    proxy = Proxy(self.openerpUrl + 'object')
-    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
-    d.addCallback(self.__addToCollection, uid, request, pwd)
-    return d
-
-  def __addToCollection(self, item, uid, request, pwd):
+  def __addToCollection(self, uid, request, pwd):
     """This is called after successful login to add an items
     to a certain collection, e.g. a new res.partner."""
     hello()
@@ -414,7 +400,7 @@ class OpenErpModelResource(Resource):
       request.finish()
       return
     # get default values for this model
-    defaultDocRoot = etree.fromstring(self.__mkDefaultXml(str(request.URLPath()), self.desc, item), parser=parser)
+    defaultDocRoot = etree.fromstring(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults), parser=parser)
     defaultDoc = defaultDocRoot.find("{http://www.w3.org/2005/Atom}content").find("{%s}%s" % (ns, self.model.replace(".", "_")))
     stripNsRe = re.compile(r'^{%s}(.+)$' % ns)
     # collect all fields with non-default values
@@ -629,7 +615,7 @@ It only throws the given exception."""
     # if uri is sth. like /[dbname]/res.partner,
     #  POST creates an entry in this collection:
     if not request.postpath:
-      d.addCallback(self.__getDefaultsAndAdd, request, pwd)
+      d.addCallback(self.__addToCollection, request, pwd)
 
     # if URI is sth. like /[dbname]/res.partner/something,
     #  return 400, cannot POST here
