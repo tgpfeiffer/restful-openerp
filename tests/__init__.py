@@ -34,6 +34,7 @@ class OpenErpProxyTest(unittest.TestCase):
 
   def _checkResponseCode(self, response, code):
     self.assertEqual(response.code, code)
+    return response
 
   def setUp(self):
     # read config
