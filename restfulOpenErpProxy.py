@@ -7,14 +7,14 @@
 # the terms of the GNU Affero General Public License version 3 as published by
 # the Free Software Foundation.
 
-import os, sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect
+import sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect
 from xml.sax.saxutils import escape as xmlescape
 
 from lxml import etree
 
 from twisted.web.server import Site, NOT_DONE_YET
-from twisted.web.resource import *
-from twisted.internet import reactor, task
+from twisted.web.resource import ErrorPage, Resource
+from twisted.internet import reactor
 from twisted.python import log
 from twisted.web.xmlrpc import Proxy
 
@@ -276,7 +276,7 @@ class OpenErpModelResource(Resource):
     # val should be a one-element-list with a dictionary describing the current object
     try:
       item = val[0]
-    except IndexError, e:
+    except IndexError:
       request.setResponseCode(404)
       request.write("No such resource.")
       request.finish()

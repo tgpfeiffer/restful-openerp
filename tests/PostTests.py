@@ -12,13 +12,9 @@ from lxml import etree
 from zope.interface import implements
 
 from twisted.web.http_headers import Headers
-from twisted.internet.defer import Deferred, DeferredList
+from twisted.internet.defer import Deferred
 from twisted.internet.defer import succeed
 from twisted.web.iweb import IBodyProducer
-
-import feedvalidator
-from feedvalidator import compatibility
-from feedvalidator.formatter.text_plain import Formatter
 
 from tests import OpenErpProxyTest, PrinterClient
 
