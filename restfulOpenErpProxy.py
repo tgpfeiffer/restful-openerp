@@ -14,7 +14,7 @@ from lxml import etree
 
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import ErrorPage, Resource
-from twisted.internet import reactor
+from twisted.internet import reactor, task
 from twisted.python import log
 from twisted.web.xmlrpc import Proxy
 
@@ -101,6 +101,14 @@ class OpenErpModelResource(Resource):
     self.openerpUrl = openerpUrl
     self.dbname = dbname
     self.model = model
+    self.desc = {}
+    self.defaults = {}
+    # clear self.desc and self.default every two hours
+    l = task.LoopingCall(self.clearCachedValues)
+    l.start(60 * 60 * 2)
+
+  def clearCachedValues(self):
+    log.msg("clearing schema/default cache for "+self.model)
     self.desc = {}
     self.defaults = {}
 
