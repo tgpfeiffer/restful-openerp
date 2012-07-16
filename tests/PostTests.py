@@ -171,6 +171,18 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
       # will fail validation at mandatory, not-given fields
       return d.addCallback(self._checkResponse, 400, "invalid XML:\n<string>:48:0:ERROR:RELAXNGV:RELAXNG_ERR_DATATYPE: Error validating datatype string")
 
+  def test_whenDefaultsWithNameThen201(self):
+    def makeNextCall(xml):
+      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/erptest/res.partner/schema}res_partner")
+      doc.find("{http://localhost:8068/erptest/res.partner/schema}name").text = "Test Partner"
+      content = etree.tostring(doc)
+      d = self.agent.request(
+          'POST',
+          'http://localhost:8068/erptest/res.partner',
+          Headers({'Authorization': ['Basic %s' % self.basic]}),
+          StringProducer(content))
+      return d.addCallback(self._checkResponseCode, 201)
+
     d1 = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner/defaults',
