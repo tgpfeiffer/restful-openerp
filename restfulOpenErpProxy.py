@@ -74,6 +74,8 @@ class OpenErpDispatcher(Resource, object):
 
 
 class OpenErpDbResource(Resource):
+  models = {}
+
   """This is accessed when going to /{database}."""
   def __init__(self, openerpUrl, dbname):
     Resource.__init__(self)
@@ -82,7 +84,12 @@ class OpenErpDbResource(Resource):
   
   # @override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
   def getChild(self, path, request):
-    return OpenErpModelResource(self.openerpUrl, self.dbname, path)
+    if self.models.has_key(path):
+      return self.models[path]
+    else:
+      log.msg("Creating resource for '%s' model." % path)
+      self.models[path] = OpenErpModelResource(self.openerpUrl, self.dbname, path)
+      return self.models[path]
 
 
 class OpenErpModelResource(Resource):
@@ -175,6 +182,7 @@ class OpenErpModelResource(Resource):
 
   def __handleDefaultsAnswer(self, val, uid):
     hello()
+    log.msg("updating default values for "+self.model)
     self.defaults = val
     return uid
 
@@ -463,6 +471,7 @@ class OpenErpModelResource(Resource):
 
   def __handleTypedescAnswer(self, val, uid):
     hello()
+    log.msg("updating schema for "+self.model)
     self.desc = val
     return uid
 
