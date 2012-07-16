@@ -95,6 +95,7 @@ class OpenErpModelResource(Resource):
     self.dbname = dbname
     self.model = model
     self.desc = {}
+    self.defaults = {}
 
   ### list items of a collection
 
@@ -160,6 +161,22 @@ class OpenErpModelResource(Resource):
     return d
 
   ### list the default values for an item
+
+  def __updateDefaults(self, uid, pwd):
+    hello()
+    if not self.defaults:
+      # update type description
+      proxy = Proxy(self.openerpUrl + 'object')
+      d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
+      d.addCallback(self.__handleDefaultsAnswer, uid)
+      return d
+    else:
+      return uid
+
+  def __handleDefaultsAnswer(self, val, uid):
+    hello()
+    self.defaults = val
+    return uid
 
   def __getItemDefaults(self, uid, request, pwd):
     hello()
@@ -565,6 +582,7 @@ It only throws the given exception."""
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
+    d.addCallback(self.__updateDefaults, pwd)
 
     # if uri is sth. like /[dbname]/res.partner,
     #  give a list of all objects in this collection:
@@ -606,6 +624,7 @@ It only throws the given exception."""
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
+    d.addCallback(self.__updateDefaults, pwd)
 
     # if uri is sth. like /[dbname]/res.partner,
     #  POST creates an entry in this collection:
