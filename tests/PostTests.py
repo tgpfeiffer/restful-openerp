@@ -135,8 +135,14 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
     return whenFinished
 
   def _checkResponse(self, response, code, value):
+    self.assertEqual(response.code, code)
     # check for responseBody.startswith(value):
     return self._doSomethingWithBody(response, lambda x: self.assertEqual(x[:len(value)], value))
+
+  def _checkResponseHeader(self, response, code, header, value):
+    self.assertEqual(response.code, code)
+    self.assertTrue(response.headers.hasHeader(header))
+    self.assertEqual(response.headers.getRawHeaders(header)[0][:len(value)], value)
 
   def test_whenMalformedXmlThen400(self):
     xml = """<entry></content>"""
@@ -168,7 +174,7 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
       return d.addCallback(self._checkResponse, 400, "invalid XML:\n<string>:48:0:ERROR:RELAXNGV:RELAXNG_ERR_DATATYPE: Error validating datatype string")
 
   def test_whenDefaultsWithNameThen201(self):
-    def makeNextCall(xml):
+    def insertData(xml):
       doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/erptest/res.partner/schema}res_partner")
       doc.find("{http://localhost:8068/erptest/res.partner/schema}name").text = "Test Partner"
       content = etree.tostring(doc)
@@ -177,12 +183,12 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
           'http://localhost:8068/erptest/res.partner',
           Headers({'Authorization': ['Basic %s' % self.basic]}),
           StringProducer(content))
-      return d.addCallback(self._checkResponseCode, 201)
+      return d.addCallback(self._checkResponseHeader, 201, "Location", "http://localhost:8068/erptest/res.partner/")
 
     d1 = self.agent.request(
         'GET',
         'http://localhost:8068/erptest/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
-    return d1.addCallback(self._doSomethingWithBody, makeNextCall)
+    return d1.addCallback(self._doSomethingWithBody, insertData)
 
