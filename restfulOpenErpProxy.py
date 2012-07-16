@@ -7,7 +7,7 @@
 # the terms of the GNU Affero General Public License version 3 as published by
 # the Free Software Foundation.
 
-import sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect
+import sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect, re
 from xml.sax.saxutils import escape as xmlescape
 
 from lxml import etree
@@ -358,15 +358,23 @@ class OpenErpModelResource(Resource):
 
   ### handle inserts into collection
 
-  def __addToCollection(self, uid, request, pwd):
+  def __getDefaultsAndAdd(self, uid, request, pwd):
+    hello()
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
+    d.addCallback(self.__addToCollection, uid, request, pwd)
+    return d
+
+  def __addToCollection(self, item, uid, request, pwd):
     """This is called after successful login to add an items
     to a certain collection, e.g. a new res.partner."""
     hello()
     if not self.desc:
       raise xmlrpclib.Fault("warning -- Object Error", "no such collection")
     # check whether we got well-formed XML
+    parser = etree.XMLParser(remove_comments=True)
     try:
-      doc = etree.fromstring(request.content.read())
+      doc = etree.fromstring(request.content.read(), parser=parser)
     except Exception as e:
       request.setResponseCode(400)
       request.write("malformed XML: "+str(e))
@@ -388,10 +396,44 @@ class OpenErpModelResource(Resource):
       request.write("invalid XML:\n"+str(err))
       request.finish()
       return
-    # TODO: transform XML content into XML-RPC call
-    # TODO: get all non-empty (should be: non-default) nodes
-    # TODO: compose the XML-RPC call from them
-    raise NotImplementedError
+    # get default values for this model
+    defaultDocRoot = etree.fromstring(self.__mkDefaultXml(str(request.URLPath()), self.desc, item), parser=parser)
+    defaultDoc = defaultDocRoot.find("{http://www.w3.org/2005/Atom}content").find("{%s}%s" % (ns, self.model.replace(".", "_")))
+    stripNsRe = re.compile(r'^{%s}(.+)$' % ns)
+    # collect all fields with non-default values
+    fields = {}
+    for c in doc.getchildren():
+      if c.tag == "{%s}id" % ns:
+        # will not update id
+        continue
+      elif etree.tostring(c) == etree.tostring(defaultDoc.find(c.tag)):
+        # c has default value
+        continue
+      # we can assume the regex will match due to validation beforehand
+      tagname = stripNsRe.search(c.tag).group(1)
+      if c.attrib["type"] in ("char", "selection", "text"):
+        fields[tagname] = c.text
+      elif c.attrib["type"] == "float":
+        fields[tagname] = float(c.text)
+      elif c.attrib["type"] == "integer":
+        fields[tagname] = int(c.text)
+      elif c.attrib["type"] == "boolean":
+        fields[tagname] = (c.text == "True")
+      else:
+        # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
+        raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
+    # compose the XML-RPC call from them
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'create', fields)
+    d.addCallback(self.__handleAddCollectionAnswer, request)
+    return d
+
+  def __handleAddCollectionAnswer(self, object_id, request):
+    hello()
+    loc = str(request.URLPath()) + "/" + str(object_id)
+    request.setResponseCode(201)
+    request.setHeader("Location", loc)
+    request.finish()
 
   ### handle login
 
@@ -568,7 +610,7 @@ It only throws the given exception."""
     # if uri is sth. like /[dbname]/res.partner,
     #  POST creates an entry in this collection:
     if not request.postpath:
-      d.addCallback(self.__addToCollection, request, pwd)
+      d.addCallback(self.__getDefaultsAndAdd, request, pwd)
 
     # if URI is sth. like /[dbname]/res.partner/something,
     #  return 400, cannot POST here
