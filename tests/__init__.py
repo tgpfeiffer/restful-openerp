@@ -45,13 +45,16 @@ class OpenErpProxyTest(unittest.TestCase):
     self.password = config.get("Tests", "password")
     self.basic = (self.user+":"+self.password).encode('base64')
     # start listening
-    root = OpenErpDispatcher(openerpUrl)
-    self.factory = Site(root)
+    self.root = OpenErpDispatcher(openerpUrl)
+    self.factory = Site(self.root)
     self.server = reactor.listenTCP(8068, self.factory)
     self.client = None
     self.agent = Agent(reactor)
 
   def tearDown(self):
+    for dbname, dbres in self.root.databases.iteritems():
+      for modelname, modelres in dbres.models.iteritems():
+        modelres.cleanUpTask.stop()
     if self.client is not None:
       self.client.transport.loseConnection()
     return self.server.stopListening()

@@ -47,10 +47,10 @@ class UnauthorizedPage(ErrorPage):
 
 
 class OpenErpDispatcher(Resource, object):
-  databases = {}
   
   def __init__(self, openerpUrl):
     Resource.__init__(self)
+    self.databases = {}
     self.openerpUrl = openerpUrl
     log.msg("Server starting up with backend: " + self.openerpUrl)
 
@@ -74,13 +74,13 @@ class OpenErpDispatcher(Resource, object):
 
 
 class OpenErpDbResource(Resource):
-  models = {}
 
   """This is accessed when going to /{database}."""
   def __init__(self, openerpUrl, dbname):
     Resource.__init__(self)
     self.openerpUrl = openerpUrl
     self.dbname = dbname
+    self.models = {}
   
   # @override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
   def getChild(self, path, request):
@@ -104,8 +104,8 @@ class OpenErpModelResource(Resource):
     self.desc = {}
     self.defaults = {}
     # clear self.desc and self.default every two hours
-    l = task.LoopingCall(self.clearCachedValues)
-    l.start(60 * 60 * 2)
+    self.cleanUpTask = task.LoopingCall(self.clearCachedValues)
+    self.cleanUpTask.start(60 * 60 * 2)
 
   def clearCachedValues(self):
     log.msg("clearing schema/default cache for "+self.model)
