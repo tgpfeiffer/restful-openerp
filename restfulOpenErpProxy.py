@@ -419,13 +419,14 @@ class OpenErpModelResource(Resource):
     defaultDocRoot = etree.fromstring(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults), parser=parser)
     defaultDoc = defaultDocRoot.find("{http://www.w3.org/2005/Atom}content").find("{%s}%s" % (ns, self.model.replace(".", "_")))
     stripNsRe = re.compile(r'^{%s}(.+)$' % ns)
+    whitespaceRe = re.compile(r'\s+')
     # collect all fields with non-default values
     fields = {}
     for c in doc.getchildren():
       if c.tag == "{%s}id" % ns:
         # will not update id
         continue
-      elif etree.tostring(c) == etree.tostring(defaultDoc.find(c.tag)):
+      elif whitespaceRe.sub(" ", etree.tostring(c, pretty_print=True).strip()) == whitespaceRe.sub(" ", etree.tostring(defaultDoc.find(c.tag), pretty_print=True).strip()):
         # c has default value
         continue
       # we can assume the regex will match due to validation beforehand
