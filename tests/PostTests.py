@@ -229,3 +229,47 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
         None)
     return d1.addCallback(self._doSomethingWithBody, insertData)
 
+  def test_whenDefaultsWithMany2OneAndLookupThen200(self):
+    def insertData(xml):
+      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/erptest/res.partner.address/schema}res_partner_address")
+      doc.find("{http://localhost:8068/erptest/res.partner.address/schema}name").text = "Test Partner"
+      doc.find("{http://localhost:8068/erptest/res.partner.address/schema}email").text = "me@privacy.net"
+      doc.find("{http://localhost:8068/erptest/res.partner.address/schema}partner_id").append(
+        etree.Element("link", href="http://localhost:8068/erptest/res.partner/4")
+      )
+      content = etree.tostring(doc)
+      d2 = self.agent.request(
+          'POST',
+          'http://localhost:8068/erptest/res.partner.address',
+          Headers({'Authorization': ['Basic %s' % self.basic]}),
+          StringProducer(content))
+      return d2.addCallback(lookupData)
+
+    def __checkCorrectData(xml):
+      answer = etree.fromstring(xml)
+      self.assertEqual(answer.findtext(".//{http://localhost:8068/erptest/res.partner.address/schema}name"),
+        "Test Partner")
+      self.assertEqual(answer.findtext(".//{http://localhost:8068/erptest/res.partner.address/schema}email"),
+        "me@privacy.net")
+      self.assertEqual(answer.find(".//{http://localhost:8068/erptest/res.partner.address/schema}partner_id/{http://localhost:8068/erptest/res.partner.address/schema}link").attrib['href'],
+        "http://localhost:8068/erptest/res.partner/4")
+
+    def lookupData(response):
+      loc = response.headers.getRawHeaders("Location")[0]
+      d3 = self.agent.request(
+        'GET',
+        loc,
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+      d3.addCallback(self._checkResponseCode, 200)
+      return d3.addCallback(self._doSomethingWithBody, lambda x: __checkCorrectData(x))
+
+    d1 = self.agent.request(
+        'GET',
+        'http://localhost:8068/erptest/res.partner.address/defaults',
+        Headers({'Authorization': ['Basic %s' % self.basic]}),
+        None)
+    return d1.addCallback(self._doSomethingWithBody, insertData)
+
+# TODO: test many2many and one2many fields
+

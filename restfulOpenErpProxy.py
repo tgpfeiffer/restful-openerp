@@ -457,6 +457,18 @@ class OpenErpModelResource(Resource):
         fields[tagname] = int(c.text)
       elif c.attrib["type"] == "boolean":
         fields[tagname] = (c.text == "True")
+      elif c.attrib["type"] == "many2one":
+        assert c.attrib['relation'] == defaultDoc.find(c.tag).attrib['relation']
+        uris = [link.attrib['href'] for link in c.getchildren()]
+        ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
+        if ids:
+          fields[tagname] = ids[0]
+      elif c.attrib["type"] in ("many2many", "one2many"):
+        assert c.attrib['relation'] == defaultDoc.find(c.tag).attrib['relation']
+        uris = [link.attrib['href'] for link in c.getchildren()]
+        ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
+        if ids:
+          fields[tagname] = ids
       else:
         # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
         raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
