@@ -231,24 +231,32 @@ class OpenErpModelResource(Resource):
       fieldtype = desc[key]['type']
       # if we have an empty field, we display a closed tag
       #  (except if this is a boolean field)
-      if not value and fieldtype != "boolean":
+      if not value and fieldtype in ('many2one', 'one2many', 'many2many'):
+        xml += ("    <%s type='%s' relation='%s' />\n" % (
+          key,
+          fieldtype,
+          '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"]]))
+        )
+      elif not value and fieldtype != "boolean":
         xml += ("    <%s type='%s' />\n" % (
           key,
           fieldtype)
         )
       # display URIs for many2one fields
       elif fieldtype == 'many2one':
-        xml += ("    <%s type='%s'>\n      <link href='%s' />\n    </%s>\n" % (
+        xml += ("    <%s type='%s' relation='%s'>\n      <link href='%s' />\n    </%s>\n" % (
           key,
           fieldtype,
+          '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"]]),
           '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"], str(value)]),
           key)
         )
       # display URIs for *2many fields, wrapped by <item>
       elif fieldtype in ('one2many', 'many2many'):
-        xml += ("    <%s type='%s'>%s</%s>\n" % (
+        xml += ("    <%s type='%s' relation='%s'>%s</%s>\n" % (
           key,
           fieldtype,
+          '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"]]),
           ''.join(
             ['\n      <link href="' + '/'.join(path.split("/")[:-1] + [desc[key]["relation"], str(v)]) + '" />' for v in value]
           ) + '\n    ',
@@ -340,7 +348,15 @@ class OpenErpModelResource(Resource):
         fieldtype = self.desc[key]['type']
         # if we have an empty field, we display a closed tag
         #  (except if this is a boolean field)
-        if not value and fieldtype != "boolean":
+        if not value and fieldtype in ('many2one', 'one2many', 'many2many'):
+          request.write("    <%s type='%s' relation='%s'><!-- %s --></%s>\n" % (
+            key,
+            fieldtype,
+            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
+            value,
+            key)
+          )
+        elif not value and fieldtype != "boolean":
           request.write("    <%s type='%s'><!-- %s --></%s>\n" % (
             key,
             fieldtype,
@@ -349,17 +365,19 @@ class OpenErpModelResource(Resource):
           )
         # display URIs for many2one fields
         elif fieldtype == 'many2one':
-          request.write("    <%s type='%s'>\n      <link href='%s' />\n    </%s>\n" % (
+          request.write("    <%s type='%s' relation='%s'>\n      <link href='%s' />\n    </%s>\n" % (
             key,
             fieldtype,
+            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
             '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value[0])]),
             key)
           )
         # display URIs for *2many fields, wrapped by <item>
         elif fieldtype in ('one2many', 'many2many'):
-          request.write("    <%s type='%s'>%s</%s>\n" % (
+          request.write("    <%s type='%s' relation='%s'>%s</%s>\n" % (
             key,
             fieldtype,
+            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
             ''.join(
               ['\n      <link href="' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
             ) + '\n    ',
@@ -500,6 +518,8 @@ class OpenErpModelResource(Resource):
       fieldtype = val['type']
       required = val.has_key('required') and val['required'] or False
       xml += ('  <element name="%s">\n    <attribute name="type" />' % key)
+      if fieldtype in ('many2one', 'many2many', 'one2many'):
+        xml += '\n    <attribute name="relation" />'
       if fieldtype in ('many2many', 'one2many'):
         elemName = required and "oneOrMore" or "zeroOrMore"
         xml += ('\n    <%s><element name="link"><attribute name="href" /></element></%s>\n  ' % (elemName, elemName))
