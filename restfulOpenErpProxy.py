@@ -511,6 +511,8 @@ class OpenErpModelResource(Resource):
   def __handleTypedescAnswer(self, val, uid):
     hello()
     log.msg("updating schema for "+self.model)
+    if val.has_key("id"):
+      del val["id"]
     self.desc = val
     return uid
 
