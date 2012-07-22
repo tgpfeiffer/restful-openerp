@@ -441,15 +441,15 @@ class OpenErpModelResource(Resource):
     # collect all fields with non-default values
     fields = {}
     for c in doc.getchildren():
-      if c.tag == "{%s}id" % ns:
-        # will not update id
+      if c.tag == "{%s}id" % ns or c.tag == "{%s}create_date" % ns:
+        # will not update id or create_date
         continue
       elif whitespaceRe.sub(" ", etree.tostring(c, pretty_print=True).strip()) == whitespaceRe.sub(" ", etree.tostring(defaultDoc.find(c.tag), pretty_print=True).strip()):
         # c has default value
         continue
       # we can assume the regex will match due to validation beforehand
       tagname = stripNsRe.search(c.tag).group(1)
-      if c.attrib["type"] in ("char", "selection", "text"):
+      if c.attrib["type"] in ("char", "selection", "text", "datetime"):
         fields[tagname] = c.text
       elif c.attrib["type"] == "float":
         fields[tagname] = float(c.text)
