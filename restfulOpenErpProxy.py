@@ -468,7 +468,7 @@ class OpenErpModelResource(Resource):
         uris = [link.attrib['href'] for link in c.getchildren()]
         ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
         if ids:
-          fields[tagname] = ids
+          fields[tagname] = [(6, 0, ids)]
       else:
         # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
         raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
