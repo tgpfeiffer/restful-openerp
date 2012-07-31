@@ -25,6 +25,7 @@ def hello():
 call stack a bit better..."""
   stack = inspect.stack()
   parent = stack[1][3]
+  #print parent
 
 def localTimeStringToUtcDatetime(s):
   # get local and UTC timezone to convert the time stamps
@@ -500,6 +501,53 @@ class OpenErpModelResource(Resource):
     request.setHeader("Location", loc)
     request.finish()
 
+  ### handle workflows
+
+  def __prepareWorkflow(self, uid, request, pwd, modelId, workflow):
+    hello()
+    modelId = int(modelId)
+    # first, get information about the item
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [])
+    d.addCallback(self.__executeWorkflow, uid, request, pwd, modelId, workflow)
+    return d
+
+  def __executeWorkflow(self, val, uid, request, pwd, modelId, workflow):
+    hello()
+    # val should be a one-element-list with a dictionary describing the current object
+    try:
+      item = val[0]
+    except IndexError:
+      request.setResponseCode(404)
+      request.write("No such resource.")
+      request.finish()
+      return
+    # also, the given workflow should be valid for the current state
+    for button in self.workflowDesc:
+      if (not item.has_key("state") or item["state"] in button.attrib['states'].split(",")) \
+          and not self.__is_number(button.attrib["name"]) and workflow == button.attrib['name']:
+        currentAction = button
+        break
+    else:
+      request.setResponseCode(400)
+      request.write("Workflow '%s' not allowed in state '%s'." % \
+        (workflow, (item.has_key("state") and item["state"]) or ''))
+      request.finish()
+      return
+    # here, the workflow is allowed for the current object
+    if currentAction.attrib.has_key("type"):
+      raise NotImplementedError("don't know how to handle workflow '%s'" % workflow)
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('exec_workflow', self.dbname, uid, pwd, self.model, workflow, modelId)
+    d.addCallback(self.__handleWorkflowAnswer, request, modelId, workflow)
+    return d
+
+  def __handleWorkflowAnswer(self, result, request, modelId, workflow):
+    request.setResponseCode(204)
+    loc = str(request.URLPath()) + "/" + str(modelId)
+    request.setHeader("Location", loc)
+    request.finish()
+
   ### handle login
 
   def __handleLoginAnswer(self, uid):
@@ -701,12 +749,18 @@ It only throws the given exception."""
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
+    d.addCallback(self.__updateWorkflowDesc, pwd)
     d.addCallback(self.__updateDefaults, pwd)
 
     # if uri is sth. like /[dbname]/res.partner,
     #  POST creates an entry in this collection:
     if not request.postpath:
       d.addCallback(self.__addToCollection, request, pwd)
+
+    # if uri is sth. like /[dbname]/res.partner/27/something,
+    #  POST executes a workflow on this object
+    elif len(request.postpath) == 2 and self.__is_number(request.postpath[0]):
+      d.addCallback(self.__prepareWorkflow, request, pwd, *request.postpath)
 
     # if URI is sth. like /[dbname]/res.partner/something,
     #  return 400, cannot POST here
