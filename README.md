@@ -2,7 +2,7 @@
 
 ## Introduction
 
-[OpenERP](http://www.openerp.com/) is a powerful Open Source Software for Enterprise Resource Planning (ERP). It has a GTK desktop client and a web interface, both talking to the OpenERP backend via [XML-RPC](http://en.wikipedia.org/wiki/XML-RPC). This also allows to write third-party applications that use OpenERP functionality - however, not in a RESTful way.
+[OpenERP](http://www.openerp.com/) is a powerful Open Source Software for Enterprise Resource Planning (ERP). It has a GTK desktop client and a web interface, both talking to the OpenERP backend via [XML-RPC](http://en.wikipedia.org/wiki/XML-RPC). This also allows to write third-party applications that use OpenERP functionality – however, not in a RESTful way.
 
 The aim of this project is to provide a RESTful “proxy” for OpenERP's XML-RPC web service. We aim to build the API in such a way that
 
@@ -17,11 +17,16 @@ Currently it is possible to get
 * a **filtered version of that list** using `/{database}/{model}?{key}={value}`,
 * for all object types defined within OpenERP, a **complete description of each object** at the URI specified in the above feed (usually `/{database}/{model}/{id}`) as an Atom entry,
 * a **parameterized version of that description** for general environment parameters such as “lang” or “tz” or special context-dependent parameters such as “product_id” using `/{database}/{model}/{id}?{key}={value}`,
-* for all object types defined within OpenERP, a description of the schema of this object type at `/{database}/{model}/schema` as a Relax NG XML description.
+* for all object types defined within OpenERP, a description of the **schema of this object type** at `/{database}/{model}/schema` as a Relax NG XML description,
+* for all object types defined within OpenERP, the **default values for this object type** at `/{database}/{model}/defaults`.
+
+Also, it is possible to create, for all object types defined within OpenERP (e.g., `res.partner`), a **new object** of this type by POSTing an appropriate description to `/{database}/{model}`. Such a description can in particular be obtained by taking the XML from `/{database}/{model}/defaults`, extracting the OpenERP-specific fragment (e.g., the `res_partner` node) and setting the body of all required elements.
 
 Access control is done via HTTP Basic Auth using OpenERP as backend. There is a good test coverage of HTTP response codes, XML validity etc.
 
 To illustrate:
+
+### List of all objects
 
 `curl -u user:pass http://localhost:8068/erptest/product.product` gives:
 
@@ -74,6 +79,8 @@ To illustrate:
   </entry>
 </feed>
 ```
+
+### Single object description
 
 `curl -u user:pass http://localhost:8068/erptest/product.product/147` gives:
 
@@ -129,6 +136,8 @@ To illustrate:
 </entry>
 ```
 
+### Schema
+
 `curl -u user:pass http://localhost:8068/erptest/product.product/schema` gives:
 
 ```xml
@@ -163,8 +172,9 @@ See issues.
 * [PyAtom](https://github.com/sramana/pyatom)
 * [python-dateutil](http://labix.org/python-dateutil)
 * [lxml](http://lxml.de/)
+* pyOpenSSL (optional, needed to access OpenERP via https)
 
-There is a requirements.txt file for pip that can be used to satisfy the dependencies.
+There is a requirements.txt file for pip that can be used to satisfy the required dependencies.
 
 ## Installation
 
