@@ -102,6 +102,7 @@ class OpenErpModelResource(Resource):
     self.dbname = dbname
     self.model = model
     self.desc = {}
+    self.workflowDesc = []
     self.defaults = {}
     # clear self.desc and self.default every two hours
     self.cleanUpTask = task.LoopingCall(self.clearCachedValues)
@@ -320,6 +321,7 @@ class OpenErpModelResource(Resource):
     request.setHeader("Last-Modified", httpdate(lastModified))
     request.setHeader("Content-Type", "application/atom+xml")
     # compose answer
+    path = str(request.URLPath())+"/"+str(item['id'])
     xmlHead = u'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <title type="text">%s</title>
@@ -332,9 +334,9 @@ class OpenErpModelResource(Resource):
   <content type="application/vnd.openerp+xml">
   <%s xmlns="%s">
 ''' % (item['name'],
-       str(request.URLPath())+"/"+str(item['id']),
+       path,
        lastModified.isoformat()[:-13]+'Z',
-       str(request.URLPath())+"/"+str(item['id']),
+       path,
        'None', # TODO: insert author, if present
        self.model.replace('.', '_'),
        '/'.join(str(request.URLPath()).split("/") + ["schema"]),
@@ -397,8 +399,21 @@ class OpenErpModelResource(Resource):
           xmlescape(unicode(value).encode('utf-8')),
           key)
         )
-    request.write("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
+    request.write("  </%s>\n" % self.model.replace('.', '_'))
+    for button in self.workflowDesc:
+      if (not item.has_key("state") or item["state"] in button.attrib['states'].split(",")) \
+          and not self.__is_number(button.attrib["name"]):
+        request.write("  <link rel='%s' href='%s' title='%s' />\n" % \
+          (button.attrib['name'], path+"/"+button.attrib['name'], button.attrib['string']))
+    request.write("  </content>\n</entry>")
     request.finish()
+
+  def __is_number(self, n):
+    try:
+      x = int(n)
+      return True
+    except:
+      return False
 
   ### handle inserts into collection
 
@@ -521,6 +536,29 @@ class OpenErpModelResource(Resource):
     # if an error appears while updating the type description
     return uid
 
+  def __updateWorkflow(self, uid, pwd):
+    hello()
+    if not self.workflowDesc:
+      # update type description
+      proxy = Proxy(self.openerpUrl + 'object')
+      d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'fields_view_get', [])
+      d.addCallback(self.__handleWorkflowAnswer, uid)
+      d.addErrback(self.__handleWorkflowError, uid)
+      return d
+    else:
+      return uid
+
+  def __handleWorkflowAnswer(self, val, uid):
+    hello()
+    log.msg("updating workflow description for "+self.model)
+    self.workflowDesc = etree.fromstring(val['arch']).findall(".//button")
+    return uid
+
+  def __handleWorkflowError(self, err, uid):
+    hello()
+    # if an error appears while updating the type description
+    return uid
+
   def __desc2relaxNG(self, path, desc):
     ns = path + "/schema"
     xml = '''<?xml version="1.0" encoding="utf-8"?>
@@ -620,6 +658,7 @@ It only throws the given exception."""
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
+    d.addCallback(self.__updateWorkflow, pwd)
     d.addCallback(self.__updateDefaults, pwd)
 
     # if uri is sth. like /[dbname]/res.partner,
