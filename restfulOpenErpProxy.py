@@ -536,25 +536,25 @@ class OpenErpModelResource(Resource):
     # if an error appears while updating the type description
     return uid
 
-  def __updateWorkflow(self, uid, pwd):
+  def __updateWorkflowDesc(self, uid, pwd):
     hello()
     if not self.workflowDesc:
       # update type description
       proxy = Proxy(self.openerpUrl + 'object')
       d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'fields_view_get', [])
-      d.addCallback(self.__handleWorkflowAnswer, uid)
-      d.addErrback(self.__handleWorkflowError, uid)
+      d.addCallback(self.__handleWorkflowDescAnswer, uid)
+      d.addErrback(self.__handleWorkflowDescError, uid)
       return d
     else:
       return uid
 
-  def __handleWorkflowAnswer(self, val, uid):
+  def __handleWorkflowDescAnswer(self, val, uid):
     hello()
     log.msg("updating workflow description for "+self.model)
     self.workflowDesc = etree.fromstring(val['arch']).findall(".//button")
     return uid
 
-  def __handleWorkflowError(self, err, uid):
+  def __handleWorkflowDescError(self, err, uid):
     hello()
     # if an error appears while updating the type description
     return uid
@@ -658,7 +658,7 @@ It only throws the given exception."""
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
-    d.addCallback(self.__updateWorkflow, pwd)
+    d.addCallback(self.__updateWorkflowDesc, pwd)
     d.addCallback(self.__updateDefaults, pwd)
 
     # if uri is sth. like /[dbname]/res.partner,
