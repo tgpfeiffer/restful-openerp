@@ -402,7 +402,7 @@ class OpenErpModelResource(Resource):
         )
     request.write("  </%s>\n" % self.model.replace('.', '_'))
     for button in self.workflowDesc:
-      if (not item.has_key("state") or item["state"] in button.attrib['states'].split(",")) \
+      if (not item.has_key("state") or not button.attrib.has_key("states") or item["state"] in button.attrib['states'].split(",")) \
           and not self.__is_number(button.attrib["name"]):
         request.write("  <link rel='%s' href='%s' title='%s' />\n" % \
           (button.attrib['name'], path+"/"+button.attrib['name'], button.attrib['string']))
