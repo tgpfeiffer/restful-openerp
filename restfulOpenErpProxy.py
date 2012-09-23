@@ -543,7 +543,21 @@ class OpenErpModelResource(Resource):
       request.finish()
       return
     # here, the workflow is allowed for the current object
-    if currentAction.attrib.has_key("type"):
+    if currentAction.attrib.has_key("type") and currentAction.attrib['type'] == "object":
+      # get a URL from the POST body and extract model and id
+      myPath = str(request.URLPath())
+      objRe = re.compile(myPath[:myPath.find(self.model)] + r'(.+)/([0-9]+)$')
+      body = request.content.read()
+      match = objRe.match(body)
+      if not match:
+        raise NotImplementedError("don't know how to handle input '%s' for workflow '%s'" % (body, workflow))
+      # set parameters fro request
+      params = {"active_model": match.group(1), "active_id": int(match.group(2)), "active_ids": [int(match.group(2))]}
+      proxy = Proxy(self.openerpUrl + 'object')
+      d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, workflow, [modelId], params)
+      d.addCallback(self.__handleWorkflowAnswer, request, modelId, workflow)
+      return d
+    elif currentAction.attrib.has_key("type"):
       raise NotImplementedError("don't know how to handle workflow '%s'" % workflow)
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('exec_workflow', self.dbname, uid, pwd, self.model, workflow, modelId)
