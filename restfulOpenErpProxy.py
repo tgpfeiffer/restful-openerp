@@ -186,7 +186,7 @@ class OpenErpModelResource(Resource):
     if not self.defaults:
       # update type description
       proxy = Proxy(self.openerpUrl + 'object')
-      d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys())
+      d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys(), {})
       d.addCallback(self.__handleDefaultsAnswer, uid)
       return d
     else:
