@@ -286,14 +286,7 @@ class OpenErpModelResource(Resource):
 
   ### list one particular item of a collection
 
-  def __getItem(self, (uid, updateTime), request, pwd, modelId):
-    hello()
-    # make sure we're dealing with an integer id
-    try:
-      modelId = int(modelId)
-    except:
-      modelId = -1
-    # we add 'context' parameters, like 'lang' or 'tz'
+  def getParamsFromRequest(self, request):
     params = {}
     for key, vals in request.args.iteritems():
       try:
@@ -303,6 +296,17 @@ class OpenErpModelResource(Resource):
       params[key] = val
       if key == "active_id":
         params["active_ids"] = [val]
+    return params
+
+  def __getItem(self, (uid, updateTime), request, pwd, modelId):
+    hello()
+    # make sure we're dealing with an integer id
+    try:
+      modelId = int(modelId)
+    except:
+      modelId = -1
+    # we add 'context' parameters, like 'lang' or 'tz'
+    params = self.getParamsFromRequest(request)
     # issue the request
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [], params)
