@@ -336,7 +336,7 @@ class OpenErpModelResource(Resource):
   </author>
   <content type="application/vnd.openerp+xml">
   <%s xmlns="%s">
-''' % (item['name'],
+''' % (item.has_key('name') and item['name'] or "None",
        path,
        lastModified.isoformat()[:-13]+'Z',
        path,
@@ -404,7 +404,8 @@ class OpenErpModelResource(Resource):
         )
     request.write("  </%s>\n" % self.model.replace('.', '_'))
     for button in self.workflowDesc:
-      if (not item.has_key("state") or not button.attrib.has_key("states") or item["state"] in button.attrib['states'].split(",")) \
+      if button.attrib.has_key("name") and \
+          (not item.has_key("state") or not button.attrib.has_key("states") or item["state"] in button.attrib['states'].split(",")) \
           and not self.__is_number(button.attrib["name"]):
         request.write("  <link rel='%s' href='%s' title='%s' />\n" % \
           (button.attrib['name'], path+"/"+button.attrib['name'], button.attrib['string']))
@@ -526,7 +527,8 @@ class OpenErpModelResource(Resource):
       return
     # also, the given workflow should be valid for the current state
     for button in self.workflowDesc:
-      if (not item.has_key("state") or item["state"] in button.attrib['states'].split(",")) \
+      if button.attrib.has_key("name") and \
+          (not item.has_key("state") or item["state"] in button.attrib['states'].split(",")) \
           and not self.__is_number(button.attrib["name"]) and workflow == button.attrib['name']:
         currentAction = button
         break
