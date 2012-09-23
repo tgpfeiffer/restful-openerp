@@ -664,15 +664,15 @@ class OpenErpModelResource(Resource):
 
   def __cleanup(self, err, request):
     hello()
-    log.msg(err)
+    log.msg("cleanup: "+str(err))
     request.setHeader("Content-Type", "text/plain")
     e = err.value
     if err.check(xmlrpclib.Fault):
       if e.faultCode == "AccessDenied":
         request.setResponseCode(403)
         request.write("Bad credentials.")
-      elif e.faultCode.startswith("warning -- AccessError"):
-        # the above results from a xmlrpclib problem: error message in faultCode
+      elif e.faultCode.startswith("warning -- AccessError") or e.faultCode.startswith("warning -- ZugrifffFehler"):
+        # oh good, OpenERP spelling goodness...
         request.setResponseCode(404)
         request.write("No such resource.")
       elif e.faultCode.startswith("warning -- Object Error"):
@@ -680,7 +680,7 @@ class OpenErpModelResource(Resource):
         request.write("No such collection.")
       else:
         request.setResponseCode(500)
-        request.write("An XML-RPC error occured:\n"+e.faultCode)
+        request.write("An XML-RPC error occured:\n"+e.faultCode.encode("utf-8"))
     elif e.__class__ in (InvalidParameter, PostNotPossible, NoChildResources):
       request.setResponseCode(e.code)
       request.write(str(e))
