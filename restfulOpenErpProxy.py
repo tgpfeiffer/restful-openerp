@@ -1,11 +1,23 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 
 # (C) 2012 Tobias G. Pfeiffer <tgpfeiffer@web.de>
 
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of the GNU Affero General Public License version 3 as published by
 # the Free Software Foundation.
+
+# *restful-openerp* provides a RESTful HTTP endpoint for OpenERP, basically
+# transforming incoming requests into corresponding XML-RPC calls to a
+# configured OpenERP instance.  The main purpose is to allow HTTP caching
+# of requests before they actually hit the backend by following REST design
+# principles.  Therefore, *restful-openerp* allows to use OpenERP as a live
+# data source for web shops etc.
+#
+# Many of the concepts that we tried to implement have been inspired by the
+# [REST in Practice](http://restinpractice.com/book/) book.  Documentation
+# can be built using one of the [docco](https://github.com/jashkenas/docco)
+# derivatives.
 
 import sys, xmlrpclib, ConfigParser, datetime, dateutil.tz, inspect, re
 from xml.sax.saxutils import escape as xmlescape
@@ -20,15 +32,28 @@ from twisted.web.xmlrpc import Proxy
 
 import pyatom
 
+
+# Helpers
+# -------
+#
+# We use the [Twisted](http://twistedmatrix.com/) framework both to listen
+# for HTTP requests and issue the XML-RPC calls to the backend.  Twisted
+# is an asynchronous framework using a callback mechanism that might make
+# it hard to follow the control flow.  The `hello()` function can be used
+# during debugging to see what functions are called when a request is
+# processed.
+
 def hello():
   """If you wanted, you could log some message from here to understand the
-call stack a bit better..."""
+  call stack a bit better..."""
   stack = inspect.stack()
   parent = stack[1][3]
   #print parent
 
 def localTimeStringToUtcDatetime(s):
-  # get local and UTC timezone to convert the time stamps
+  """Helper function to take a string like "2013-01-01 20:41:36.12345"
+  representing a local time and use the information about the local
+  timezone to create a datetime object in UTC time."""
   tz=dateutil.tz.tzlocal()
   utc=dateutil.tz.tzutc()
   t = datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') # this time is in local tz
@@ -36,7 +61,13 @@ def localTimeStringToUtcDatetime(s):
   return t_withtz.astimezone(utc)
 
 def httpdate(dt):
+  """Helper function to return a string representation of a datetime
+  object suitable for inclusion in a HTTP header."""
   return dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+# `UnauthorizedPage` is a helper class to represent a 401 "Unauthorized"
+# HTTP response.  This response will be used when there is no user/password
+# Basic authentication information in the header.
 
 class UnauthorizedPage(ErrorPage):
   def __init__(self):
@@ -47,6 +78,17 @@ class UnauthorizedPage(ErrorPage):
     return r
 
 
+# Dispatcher
+# ----------
+#
+# This is the first class that is hit for an incoming request.  First, it
+# ensures that we have a user/password set in the header.  Then it looks
+# at the first component of the path, which is the name of the OpenERP
+# database that we want to work with (like `myerp`).  It checks whether we
+# have an corresponding instance of the `OpenErpDbResource` class cached
+# in `self.databases` and creates one, if not.  Then, it passes the request
+# on to that object by returning from the `getChild()` method.
+
 class OpenErpDispatcher(Resource, object):
   
   def __init__(self, openerpUrl):
@@ -55,7 +97,7 @@ class OpenErpDispatcher(Resource, object):
     self.openerpUrl = openerpUrl
     log.msg("Server starting up with backend: " + self.openerpUrl)
 
-  # @override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChildWithDefault
+  #@override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChildWithDefault
   def getChildWithDefault(self, pathElement, request):
     """Ensure that we have HTTP Basic Auth."""
     if not (request.getUser() and request.getPassword()):
@@ -63,7 +105,7 @@ class OpenErpDispatcher(Resource, object):
     else:
       return super(OpenErpDispatcher, self).getChildWithDefault(pathElement, request)
   
-  # @override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
+  #@override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
   def getChild(self, path, request):
     """Return a resource for the correct database."""
     if self.databases.has_key(path):
@@ -74,6 +116,18 @@ class OpenErpDispatcher(Resource, object):
       return self.databases[path]
 
 
+# Database Resource
+# -----------------
+#
+# This is the class that is used after the `OpenErpDispatcher` when processing
+# a request.  Since there is no result associated to a URL with just a first
+# component, the only action of this class is to pass on the request handling
+# to a corresponding instance of `OpenErpModelResource` based on the second
+# component, the model that we want to access (like `res.partner`). It checks
+# whether we have such an instance cached in `self.models` and creates one,
+# if not.  Then, it passes the request on to that object by returning from
+# the `getChild()` method.
+
 class OpenErpDbResource(Resource):
 
   """This is accessed when going to /{database}."""
@@ -83,7 +137,7 @@ class OpenErpDbResource(Resource):
     self.dbname = dbname
     self.models = {}
   
-  # @override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
+  #@override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
   def getChild(self, path, request):
     if self.models.has_key(path):
       return self.models[path]
