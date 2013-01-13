@@ -1,5 +1,7 @@
 # RESTful OpenERP
 
+[![Build Status](https://travis-ci.org/tgpfeiffer/restful-openerp.png?branch=master)](https://travis-ci.org/tgpfeiffer/restful-openerp)
+
 ## Introduction
 
 [OpenERP](http://www.openerp.com/) is a powerful Open Source Software for Enterprise Resource Planning (ERP). It has a GTK desktop client and a web interface, both talking to the OpenERP backend via [XML-RPC](http://en.wikipedia.org/wiki/XML-RPC). This also allows to write third-party applications that use OpenERP functionality – however, not in a RESTful way.
