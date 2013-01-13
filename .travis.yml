@@ -8,7 +8,7 @@ install:
   - sudo -u postgres createdb demo
   - wget https://nablux.net/tgp/media/demo.sql.gz
   - gunzip demo.sql.gz
-  - psql -U postgres demo < demo.sql
+  - psql -U postgres demo < demo.sql > /dev/null
   # Install OpenERP
   - sudo apt-get install gdebi-core
   - wget http://nightly.openerp.com/6.1/releases/openerp_6.1-latest-1_all.deb
@@ -18,4 +18,6 @@ install:
   - wget https://nablux.net/tgp/media/restful-openerp.cfg
   # Install Python dependencies
   - pip install -r requirements.txt --use-mirrors
-script: trial basicTests
+script:
+  - trial tests.GetTests
+  - trial tests.PostTests
