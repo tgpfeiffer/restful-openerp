@@ -1,0 +1,21 @@
+language: python
+python:
+  - "2.7"
+  - "2.6"
+services: postgresql
+install:
+  # Create openerp user, database, and load SQL data
+  - sudo -u postgres createdb demo
+  - wget https://nablux.net/tgp/media/demo.sql.gz
+  - gunzip demo.sql.gz
+  - psql -U postgres demo < demo.sql
+  # Install OpenERP
+  - wget http://nightly.openerp.com/6.1/releases/openerp_6.1-latest-1_all.deb
+  - sudo dpkg -i openerp_6.1-latest-1_all.deb
+  - sudo apt-get -y -f install
+  # Set configuration options
+  - sudo sed -i 's/db_user = openerp/db_user = postgres/' /etc/openerp/openerp-server.conf
+  - wget https://nablux.net/tgp/media/restful-openerp.cfg
+  # Install Python dependencies
+  - pip install -r requirements.txt --use-mirrors
+script: trial basicTests
