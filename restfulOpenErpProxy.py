@@ -228,6 +228,8 @@ class OpenErpModelResource(Resource):
       modelId = -1
     proxy = Proxy(self.openerpUrl + 'object')
     def handleLastItemUpdateAnswer(updateAnswer):
+      if not updateAnswer:
+        raise NotFound(str(request.URLPath()))
       return (uid, updateAnswer[0]['__last_update'])
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], ['__last_update'])
     d.addCallback(handleLastItemUpdateAnswer)
@@ -755,7 +757,7 @@ class OpenErpModelResource(Resource):
       else:
         request.setResponseCode(500)
         request.write("An XML-RPC error occured:\n"+e.faultCode.encode("utf-8"))
-    elif e.__class__ in (InvalidParameter, PostNotPossible, NoChildResources):
+    elif e.__class__ in (InvalidParameter, PostNotPossible, NoChildResources, NotFound):
       request.setResponseCode(e.code)
       request.write(str(e))
     else:
@@ -868,6 +870,13 @@ class NoChildResources(Exception):
     self.res = res
   def __str__(self):
     return str(self.res) + " has no child resources"
+
+class NotFound(Exception):
+  code = 404
+  def __init__(self, res):
+    self.res = res
+  def __str__(self):
+    return str(self.res) + " was not found"
 
 
 if __name__ == "__main__":
