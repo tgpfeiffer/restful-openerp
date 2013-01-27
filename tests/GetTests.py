@@ -41,7 +41,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenWrongAuthToProperCollectionThen403(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner',
+        'http://localhost:8068/' + self.db + '/res.partner',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -50,7 +50,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToProperCollectionThen200(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner',
+        'http://localhost:8068/' + self.db + '/product.product',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 200)
@@ -58,7 +58,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToProperCollectionWithGoodFilterThen200(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner?name=Test',
+        'http://localhost:8068/' + self.db + '/res.partner?name=Test',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 200)
@@ -66,7 +66,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToProperCollectionWithBadFilterThen400(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner?xyz=Test',
+        'http://localhost:8068/' + self.db + '/res.partner?xyz=Test',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 400)
@@ -74,7 +74,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToNonExistingCollectionThen404(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partnerx',
+        'http://localhost:8068/' + self.db + '/res.partnerx',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -84,7 +84,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenWrongAuthToProperResourceThen403(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/4',
+        'http://localhost:8068/' + self.db + '/res.partner/4',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -93,7 +93,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
     # TODO: make sure that we actually have an existing resource
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/4',
+        'http://localhost:8068/' + self.db + '/res.partner/4',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 200)
@@ -101,7 +101,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToInvalidResourceThen404(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/abc',
+        'http://localhost:8068/' + self.db + '/res.partner/abc',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -109,7 +109,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToResourceChildThen404(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/4/abc',
+        'http://localhost:8068/' + self.db + '/res.partner/4/abc',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -118,7 +118,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
     # TODO: make sure that we actually have an non-existing resource
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/-1',
+        'http://localhost:8068/' + self.db + '/res.partner/-1',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -126,7 +126,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToAnotherNonExistingResourceThen404(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/100000000',
+        'http://localhost:8068/' + self.db + '/res.partner/100000000',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -136,7 +136,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToNonExistingSchemaThen404(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partnerx/schema',
+        'http://localhost:8068/' + self.db + '/res.partnerx/schema',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -144,7 +144,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToProperSchemaThen200(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/schema',
+        'http://localhost:8068/' + self.db + '/res.partner/schema',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 200)
@@ -152,7 +152,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenWrongAuthToProperSchemaThen403(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/schema',
+        'http://localhost:8068/' + self.db + '/res.partner/schema',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -162,7 +162,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToProperDefaultsThen200(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 200)
@@ -170,7 +170,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToNonExistingDefaultsThen404(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partnerx/defaults',
+        'http://localhost:8068/' + self.db + '/res.partnerx/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -178,7 +178,7 @@ class GetResponseCodesTest(OpenErpProxyTest):
   def test_whenWrongAuthToProperDefaultsThen403(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -235,7 +235,7 @@ class GetValidResponsesTest(OpenErpProxyTest):
   def test_whenAccessToProperCollectionThenValidFeed(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner',
+        'http://localhost:8068/' + self.db + '/product.product',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkBody, self._isValidFeed)
@@ -245,7 +245,7 @@ class GetValidResponsesTest(OpenErpProxyTest):
   def test_whenAccessToProperSchemaThenValidRelaxNg(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/schema',
+        'http://localhost:8068/' + self.db + '/res.partner/schema',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkBody, self._isValidRelaxNg)
@@ -255,7 +255,7 @@ class GetValidResponsesTest(OpenErpProxyTest):
   def test_whenAccessToProperResourceThenValidFeed(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/1',
+        'http://localhost:8068/' + self.db + '/res.partner/1',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkBody, self._isValidFeed)
@@ -263,23 +263,23 @@ class GetValidResponsesTest(OpenErpProxyTest):
   def test_whenAccessToProperResourceThenValidXml(self):
     d1 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/schema',
+        'http://localhost:8068/' + self.db + '/res.partner/schema',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     d2 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/1',
+        'http://localhost:8068/' + self.db + '/res.partner/1',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     dl = DeferredList([d1, d2])
-    return dl.addCallback(self._checkBodies, self._isValidXml, "{http://localhost:8068/demo/res.partner/schema}res_partner")
+    return dl.addCallback(self._checkBodies, self._isValidXml, "{http://localhost:8068/" + self.db + "/res.partner/schema}res_partner")
 
   ## test defaults
 
   def test_whenAccessToProperDefaultsThenValidFeed(self):
     d = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkBody, self._isValidFeed)
@@ -287,16 +287,16 @@ class GetValidResponsesTest(OpenErpProxyTest):
   def test_whenAccessToProperDefaultsThenXmlButNotValid(self):
     d1 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/schema',
+        'http://localhost:8068/' + self.db + '/res.partner/schema',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     d2 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     dl = DeferredList([d1, d2])
-    return dl.addCallback(self._checkBodies, self._isXmlButNotValid, "{http://localhost:8068/demo/res.partner/schema}res_partner")
+    return dl.addCallback(self._checkBodies, self._isXmlButNotValid, "{http://localhost:8068/" + self.db + "/res.partner/schema}res_partner")
 
   # to be tested:
   # * Last-Modified header exists and is well-formed in every response

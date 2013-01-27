@@ -44,6 +44,7 @@ class OpenErpProxyTest(unittest.TestCase):
     self.user = config.get("Tests", "user")
     self.password = config.get("Tests", "password")
     self.basic = (self.user+":"+self.password).encode('base64')
+    self.db = config.get("Tests", "db")
     # start listening
     self.root = OpenErpDispatcher(openerpUrl)
     self.factory = Site(self.root)

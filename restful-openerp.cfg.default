@@ -11,3 +11,4 @@ url: http://localhost:8069/xmlrpc/
 # credentials to run the tests with
 user: user
 password: pass
+db: demo

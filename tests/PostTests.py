@@ -58,7 +58,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
   def test_whenWrongAuthToProperCollectionThen403(self):
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner',
+        'http://localhost:8068/' + self.db + '/res.partner',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -66,7 +66,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToNonExistingCollectionThen404(self):
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partnerx',
+        'http://localhost:8068/' + self.db + '/res.partnerx',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 404)
@@ -76,7 +76,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
   def test_whenWrongAuthToProperResourceThen403(self):
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner/4',
+        'http://localhost:8068/' + self.db + '/res.partner/4',
         Headers({'Authorization': ['Basic %s' % 'bla:blub'.encode('base64')]}),
         None)
     return d.addCallback(self._checkResponseCode, 403)
@@ -85,7 +85,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
     # TODO: make sure that we actually have an existing resource
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner/4',
+        'http://localhost:8068/' + self.db + '/res.partner/4',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 400)
@@ -93,7 +93,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToInvalidResourceThen400(self):
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner/abc',
+        'http://localhost:8068/' + self.db + '/res.partner/abc',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 400)
@@ -101,7 +101,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToResourceChildThen400(self):
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner/4/abc',
+        'http://localhost:8068/' + self.db + '/res.partner/4/abc',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 400)
@@ -110,7 +110,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
     # TODO: make sure that we actually have an non-existing resource
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner/-1',
+        'http://localhost:8068/' + self.db + '/res.partner/-1',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 400)
@@ -118,7 +118,7 @@ class PostResponseCodesTest(OpenErpProxyTest):
   def test_whenAccessToAnotherNonExistingResourceThen400(self):
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner/100000000',
+        'http://localhost:8068/' + self.db + '/res.partner/100000000',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d.addCallback(self._checkResponseCode, 400)
@@ -148,26 +148,26 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
     xml = """<entry></content>"""
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner',
+        'http://localhost:8068/' + self.db + '/res.partner',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         StringProducer(xml))
     return d.addCallback(self._checkResponse, 400, "malformed XML")
 
   def test_whenInvalidXmlThen400(self):
-    xml = """<res_partner xmlns="http://localhost:8068/demo/res.partner/schema"></res_partner>"""
+    xml = """<res_partner xmlns="http://localhost:8068/%s/res.partner/schema"></res_partner>""" % self.db
     d = self.agent.request(
         'POST',
-        'http://localhost:8068/demo/res.partner',
+        'http://localhost:8068/' + self.db + '/res.partner',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         StringProducer(xml))
     return d.addCallback(self._checkResponse, 400, "invalid XML:\n<string>:1:0:ERROR:RELAXNGV:RELAXNG_ERR_NOELEM: Expecting an element id, got nothing")
 
   def test_whenDefaultsThen400(self):
     def makeNextCall(xml):
-      content = etree.tostring(etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/demo/res.partner/schema}res_partner"))
+      content = etree.tostring(etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/" + self.db + "/res.partner/schema}res_partner"))
       d = self.agent.request(
           'POST',
-          'http://localhost:8068/demo/res.partner',
+          'http://localhost:8068/' + self.db + '/res.partner',
           Headers({'Authorization': ['Basic %s' % self.basic]}),
           StringProducer(content))
       # will fail validation at mandatory, not-given fields
@@ -175,41 +175,41 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
 
   def test_whenDefaultsWithNameThen201(self):
     def insertData(xml):
-      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/demo/res.partner/schema}res_partner")
-      doc.find("{http://localhost:8068/demo/res.partner/schema}name").text = "Test Partner"
+      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/" + self.db + "/res.partner/schema}res_partner")
+      doc.find("{http://localhost:8068/" + self.db + "/res.partner/schema}name").text = "Test Partner"
       content = etree.tostring(doc)
       d = self.agent.request(
           'POST',
-          'http://localhost:8068/demo/res.partner',
+          'http://localhost:8068/' + self.db + '/res.partner',
           Headers({'Authorization': ['Basic %s' % self.basic]}),
           StringProducer(content))
-      return d.addCallback(self._checkResponseHeader, 201, "Location", "http://localhost:8068/demo/res.partner/")
+      return d.addCallback(self._checkResponseHeader, 201, "Location", "http://localhost:8068/" + self.db + "/res.partner/")
 
     d1 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d1.addCallback(self._doSomethingWithBody, insertData)
 
   def test_whenDefaultsWithSomeDataAndLookupThen200(self):
     def insertData(xml):
-      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/demo/res.partner/schema}res_partner")
-      doc.find("{http://localhost:8068/demo/res.partner/schema}name").text = "Test Partner"
-      doc.find("{http://localhost:8068/demo/res.partner/schema}comment").text = "This is a test partner"
+      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/" + self.db + "/res.partner/schema}res_partner")
+      doc.find("{http://localhost:8068/" + self.db + "/res.partner/schema}name").text = "Test Partner"
+      doc.find("{http://localhost:8068/" + self.db + "/res.partner/schema}comment").text = "This is a test partner"
       content = etree.tostring(doc)
       d2 = self.agent.request(
           'POST',
-          'http://localhost:8068/demo/res.partner',
+          'http://localhost:8068/' + self.db + '/res.partner',
           Headers({'Authorization': ['Basic %s' % self.basic]}),
           StringProducer(content))
       return d2.addCallback(lookupData)
 
     def __checkCorrectData(xml):
       answer = etree.fromstring(xml)
-      self.assertEqual(answer.findtext(".//{http://localhost:8068/demo/res.partner/schema}name"),
+      self.assertEqual(answer.findtext(".//{http://localhost:8068/" + self.db + "/res.partner/schema}name"),
         "Test Partner")
-      self.assertEqual(answer.findtext(".//{http://localhost:8068/demo/res.partner/schema}comment"),
+      self.assertEqual(answer.findtext(".//{http://localhost:8068/" + self.db + "/res.partner/schema}comment"),
         "This is a test partner")
 
     def lookupData(response):
@@ -224,35 +224,35 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
 
     d1 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d1.addCallback(self._doSomethingWithBody, insertData)
 
   def test_whenDefaultsWithMany2OneAndLookupThen200(self):
     def insertData(xml):
-      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/demo/res.partner.address/schema}res_partner_address")
-      doc.find("{http://localhost:8068/demo/res.partner.address/schema}name").text = "Test Partner"
-      doc.find("{http://localhost:8068/demo/res.partner.address/schema}email").text = "me@privacy.net"
-      doc.find("{http://localhost:8068/demo/res.partner.address/schema}partner_id").append(
-        etree.Element("link", href="http://localhost:8068/demo/res.partner/4")
+      doc = etree.fromstring(xml).find("{http://www.w3.org/2005/Atom}content").find("{http://localhost:8068/" + self.db + "/res.partner.address/schema}res_partner_address")
+      doc.find("{http://localhost:8068/" + self.db + "/res.partner.address/schema}name").text = "Test Partner"
+      doc.find("{http://localhost:8068/" + self.db + "/res.partner.address/schema}email").text = "me@privacy.net"
+      doc.find("{http://localhost:8068/" + self.db + "/res.partner.address/schema}partner_id").append(
+        etree.Element("link", href="http://localhost:8068/" + self.db + "/res.partner/4")
       )
       content = etree.tostring(doc)
       d2 = self.agent.request(
           'POST',
-          'http://localhost:8068/demo/res.partner.address',
+          'http://localhost:8068/' + self.db + '/res.partner.address',
           Headers({'Authorization': ['Basic %s' % self.basic]}),
           StringProducer(content))
       return d2.addCallback(lookupData)
 
     def __checkCorrectData(xml):
       answer = etree.fromstring(xml)
-      self.assertEqual(answer.findtext(".//{http://localhost:8068/demo/res.partner.address/schema}name"),
+      self.assertEqual(answer.findtext(".//{http://localhost:8068/" + self.db + "/res.partner.address/schema}name"),
         "Test Partner")
-      self.assertEqual(answer.findtext(".//{http://localhost:8068/demo/res.partner.address/schema}email"),
+      self.assertEqual(answer.findtext(".//{http://localhost:8068/" + self.db + "/res.partner.address/schema}email"),
         "me@privacy.net")
-      self.assertEqual(answer.find(".//{http://localhost:8068/demo/res.partner.address/schema}partner_id/{http://localhost:8068/demo/res.partner.address/schema}link").attrib['href'],
-        "http://localhost:8068/demo/res.partner/4")
+      self.assertEqual(answer.find(".//{http://localhost:8068/" + self.db + "/res.partner.address/schema}partner_id/{http://localhost:8068/" + self.db + "/res.partner.address/schema}link").attrib['href'],
+        "http://localhost:8068/" + self.db + "/res.partner/4")
 
     def lookupData(response):
       loc = response.headers.getRawHeaders("Location")[0]
@@ -266,7 +266,7 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
 
     d1 = self.agent.request(
         'GET',
-        'http://localhost:8068/demo/res.partner.address/defaults',
+        'http://localhost:8068/' + self.db + '/res.partner.address/defaults',
         Headers({'Authorization': ['Basic %s' % self.basic]}),
         None)
     return d1.addCallback(self._doSomethingWithBody, insertData)
