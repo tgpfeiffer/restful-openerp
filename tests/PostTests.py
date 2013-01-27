@@ -251,7 +251,7 @@ class PostCorrectValidationsTest(OpenErpProxyTest):
         "Test Partner")
       self.assertEqual(answer.findtext(".//{http://localhost:8068/" + self.db + "/res.partner.address/schema}email"),
         "me@privacy.net")
-      self.assertEqual(answer.find(".//{http://localhost:8068/" + self.db + "/res.partner.address/schema}partner_id/{http://localhost:8068/" + self.db + "/res.partner.address/schema}link").attrib['href'],
+      self.assertEqual(answer.find(".//{http://localhost:8068/" + self.db + "/res.partner.address/schema}partner_id/{http://www.w3.org/2005/Atom}link").attrib['href'],
         "http://localhost:8068/" + self.db + "/res.partner/4")
 
     def lookupData(response):

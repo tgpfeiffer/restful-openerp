@@ -263,6 +263,7 @@ class OpenErpModelResource(Resource):
     request.finish()
 
   def __mkDefaultXml(self, path, desc, item):
+    ns = "".join([word[0] for word in self.model.split('.')])
     xml = '''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <title type="text">Defaults for %s</title>
@@ -273,15 +274,17 @@ class OpenErpModelResource(Resource):
     <name>%s</name>
   </author>
   <content type="application/vnd.openerp+xml">
-  <%s xmlns="%s">
-    <id />
+  <%s xmlns:%s="%s">
+    <%s:id />
 ''' % (self.model,
        path+"/defaults",
        datetime.datetime.utcnow().isoformat()[:-7]+'Z',
        path+"/defaults",
        'None',
-       self.model.replace('.', '_'),
+       ns + ":" + self.model.replace('.', '_'),
+       ns,
        '/'.join(path.split("/") + ["schema"]),
+       ns
        )
     # loop over the fields of the current object
     for key in desc.iterkeys():
@@ -293,51 +296,51 @@ class OpenErpModelResource(Resource):
       #  (except if this is a boolean field)
       if not value and fieldtype in ('many2one', 'one2many', 'many2many'):
         xml += ("    <%s type='%s' relation='%s' />\n" % (
-          key,
+          ns + ":" + key,
           fieldtype,
           '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"]]))
         )
       elif not value and fieldtype != "boolean":
         xml += ("    <%s type='%s' />\n" % (
-          key,
+          ns + ":" + key,
           fieldtype)
         )
       # display URIs for many2one fields
       elif fieldtype == 'many2one':
         xml += ("    <%s type='%s' relation='%s'>\n      <link href='%s' />\n    </%s>\n" % (
-          key,
+          ns + ":" + key,
           fieldtype,
           '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"]]),
           '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"], str(value)]),
-          key)
+          ns + ":" + key)
         )
       # display URIs for *2many fields, wrapped by <item>
       elif fieldtype in ('one2many', 'many2many'):
         xml += ("    <%s type='%s' relation='%s'>%s</%s>\n" % (
-          key,
+          ns + ":" + key,
           fieldtype,
           '/'.join(path.split("/")[:-1] + [self.desc[key]["relation"]]),
           ''.join(
             ['\n      <link href="' + '/'.join(path.split("/")[:-1] + [desc[key]["relation"], str(v)]) + '" />' for v in value]
           ) + '\n    ',
-          key)
+          ns + ":" + key)
         )
       # for other fields, just output the data
       elif fieldtype == 'boolean':
         xml += ("    <%s type='%s'>%s</%s>\n" % (
-          key,
+          ns + ":" + key,
           fieldtype,
           xmlescape(str(value and "True" or "False")),
-          key)
+          ns + ":" + key)
         )
       else:
         xml += ("    <%s type='%s'>%s</%s>\n" % (
-          key,
+          ns + ":" + key,
           fieldtype,
           xmlescape(str(value)),
-          key)
+          ns + ":" + key)
         )
-    xml += ("  </%s>\n  </content>\n</entry>" % self.model.replace('.', '_'))
+    xml += ("  </%s>\n  </content>\n</entry>" % (ns + ":" + self.model.replace('.', '_')))
     return xml
 
   ### list one particular item of a collection
@@ -384,6 +387,7 @@ class OpenErpModelResource(Resource):
     request.setHeader("Last-Modified", httpdate(lastModified))
     request.setHeader("Content-Type", "application/atom+xml")
     # compose answer
+    ns = "".join([word[0] for word in self.model.split('.')])
     path = str(request.URLPath())+"/"+str(item['id'])
     xmlHead = u'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
@@ -395,13 +399,14 @@ class OpenErpModelResource(Resource):
     <name>%s</name>
   </author>
   <content type="application/vnd.openerp+xml">
-  <%s xmlns="%s">
+  <%s xmlns:%s="%s">
 ''' % (item.has_key('name') and item['name'] or "None",
        path,
        lastModified.isoformat()[:-13]+'Z',
        path,
        'None', # TODO: insert author, if present
-       self.model.replace('.', '_'),
+       ns + ":" + self.model.replace('.', '_'),
+       ns,
        '/'.join(str(request.URLPath()).split("/") + ["schema"]),
        )
     request.write(xmlHead.encode('utf-8'))
@@ -415,54 +420,54 @@ class OpenErpModelResource(Resource):
         #  (except if this is a boolean field)
         if not value and fieldtype in ('many2one', 'one2many', 'many2many'):
           request.write("    <%s type='%s' relation='%s'><!-- %s --></%s>\n" % (
-            key,
+            ns + ":" + key,
             fieldtype,
             '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
             value,
-            key)
+            ns + ":" + key)
           )
         elif not value and fieldtype != "boolean":
           request.write("    <%s type='%s'><!-- %s --></%s>\n" % (
-            key,
+            ns + ":" + key,
             fieldtype,
             value,
-            key)
+            ns + ":" + key)
           )
         # display URIs for many2one fields
         elif fieldtype == 'many2one':
           request.write("    <%s type='%s' relation='%s'>\n      <link href='%s' />\n    </%s>\n" % (
-            key,
+            ns + ":" + key,
             fieldtype,
             '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
             '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value[0])]),
-            key)
+            ns + ":" + key)
           )
         # display URIs for *2many fields, wrapped by <item>
         elif fieldtype in ('one2many', 'many2many'):
           request.write("    <%s type='%s' relation='%s'>%s</%s>\n" % (
-            key,
+            ns + ":" + key,
             fieldtype,
             '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
             ''.join(
               ['\n      <link href="' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
             ) + '\n    ',
-            key)
+            ns + ":" + key)
           )
         # for other fields, just output the data
         else:
           request.write("    <%s type='%s'>%s</%s>\n" % (
-            key,
+            ns + ":" + key,
             fieldtype,
             xmlescape(unicode(value).encode('utf-8')),
-            key)
+            ns + ":" + key)
           )
       else: # no type given or no self.desc present
         request.write("    <%s>%s</%s>\n" % (
-          key,
+          ns + ":" + key,
           xmlescape(unicode(value).encode('utf-8')),
-          key)
+          ns + ":" + key)
         )
-    request.write("  </%s>\n" % self.model.replace('.', '_'))
+    request.write("  </%s>\n" % (ns + ":" + self.model.replace('.', '_')))
     for button in self.workflowDesc:
       if button.attrib.has_key("name") and \
           (not item.has_key("state") or not button.attrib.has_key("states") or item["state"] in button.attrib['states'].split(",")) \
@@ -700,12 +705,12 @@ class OpenErpModelResource(Resource):
         xml += '\n    <attribute name="relation" />'
       if fieldtype in ('many2many', 'one2many'):
         elemName = required and "oneOrMore" or "zeroOrMore"
-        xml += ('\n    <%s><element name="link"><attribute name="href" /></element></%s>\n  ' % (elemName, elemName))
+        xml += ('\n    <%s><element name="link" ns="http://www.w3.org/2005/Atom"><attribute name="href" /></element></%s>\n  ' % (elemName, elemName))
       else:
         output = "\n    "
         # select the correct field type
         if fieldtype == "many2one":
-          s = '<element name="link"><attribute name="href" /></element>'
+          s = '<element name="link" ns="http://www.w3.org/2005/Atom"><attribute name="href" /></element>'
           output += required and s or "<optional>"+s+"</optional>"
         elif fieldtype == "float":
           s = '<data type="double" />'
