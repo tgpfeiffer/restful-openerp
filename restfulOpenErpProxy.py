@@ -208,7 +208,7 @@ class OpenErpModelResource(Resource):
                  url="%s/%s" % (request.URLPath(), item['id']),
                  updated=localTimeStringToUtcDatetime(item['__last_update']),
                  author=[{'name': 'None'}])
-      request.setHeader("Content-Type", "application/atom+xml")
+      request.setHeader("Content-Type", "application/atom+xml; charset=utf-8")
       request.write(str(feed.to_string().encode('utf-8')))
       request.finish()
 
@@ -257,7 +257,7 @@ class OpenErpModelResource(Resource):
   def __getItemDefaults(self, uid, request, pwd):
     hello()
     # set correct headers
-    request.setHeader("Content-Type", "application/atom+xml")
+    request.setHeader("Content-Type", "application/atom+xml; charset=utf-8")
     # compose answer
     request.write(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults))
     request.finish()
@@ -385,7 +385,7 @@ class OpenErpModelResource(Resource):
 
     # set correct headers
     request.setHeader("Last-Modified", httpdate(lastModified))
-    request.setHeader("Content-Type", "application/atom+xml")
+    request.setHeader("Content-Type", "application/atom+xml; charset=utf-8")
     # compose answer
     ns = "".join([word[0] for word in self.model.split('.')])
     path = str(request.URLPath())+"/"+str(item['id'])
@@ -746,7 +746,7 @@ class OpenErpModelResource(Resource):
   def __cleanup(self, err, request):
     hello()
     log.msg("cleanup: "+str(err))
-    request.setHeader("Content-Type", "text/plain")
+    request.setHeader("Content-Type", "text/plain; charset=utf-8")
     e = err.value
     if err.check(xmlrpclib.Fault):
       if e.faultCode == "AccessDenied":
