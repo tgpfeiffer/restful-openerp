@@ -720,7 +720,6 @@ class OpenErpModelResource(Resource):
         # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
         raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
     # compose the XML-RPC call from them
-    print fields
     proxy = Proxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'write', [old[0]['id']], fields)
     d.addCallback(self.__handleUpdateItemAnswer, request)
@@ -862,7 +861,7 @@ class OpenErpModelResource(Resource):
       else:
         request.setResponseCode(500)
         request.write("An XML-RPC error occured:\n"+e.faultCode.encode("utf-8"))
-    elif e.__class__ in (InvalidParameter, PostNotPossible, NoChildResources, NotFound):
+    elif e.__class__ in (InvalidParameter, PostNotPossible, PutNotPossible, NoChildResources, NotFound):
       request.setResponseCode(e.code)
       request.write(str(e))
     else:
