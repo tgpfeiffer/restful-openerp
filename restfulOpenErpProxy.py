@@ -372,23 +372,8 @@ class OpenErpModelResource(Resource):
     d.addCallback(self.__handleItemAnswer, request, localTimeStringToUtcDatetime(updateTime))
     return d
 
-  def __handleItemAnswer(self, val, request, lastModified):
-    hello()
-    # val should be a one-element-list with a dictionary describing the current object
-    try:
-      item = val[0]
-    except IndexError:
-      request.setResponseCode(404)
-      request.write("No such resource.")
-      request.finish()
-      return
-
-    # set correct headers
-    request.setHeader("Last-Modified", httpdate(lastModified))
-    request.setHeader("Content-Type", "application/atom+xml; charset=utf-8")
-    # compose answer
-    ns = "".join([word[0] for word in self.model.split('.')])
-    path = str(request.URLPath())+"/"+str(item['id'])
+  def __mkItemXml(self, ns, schema, basePath, path, lastModified, item):
+    result = ""
     xmlHead = u'''<?xml version="1.0" encoding="utf-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <title type="text">%s</title>
@@ -407,9 +392,9 @@ class OpenErpModelResource(Resource):
        'None', # TODO: insert author, if present
        ns + ":" + self.model.replace('.', '_'),
        ns,
-       '/'.join(str(request.URLPath()).split("/") + ["schema"]),
+       schema,
        )
-    request.write(xmlHead.encode('utf-8'))
+    result += xmlHead.encode('utf-8')
     # loop over the fields of the current object
     for key, value in item.iteritems():
       # key is the name of the field, value is the content,
@@ -419,62 +404,78 @@ class OpenErpModelResource(Resource):
         # if we have an empty field, we display a closed tag
         #  (except if this is a boolean field)
         if not value and fieldtype in ('many2one', 'one2many', 'many2many'):
-          request.write("    <%s type='%s' relation='%s'><!-- %s --></%s>\n" % (
+          result += "    <%s type='%s' relation='%s'><!-- %s --></%s>\n" % (
             ns + ":" + key,
             fieldtype,
-            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
+            '/'.join(basePath.split("/")[:-1] + [self.desc[key]["relation"]]),
             value,
             ns + ":" + key)
-          )
         elif not value and fieldtype != "boolean":
-          request.write("    <%s type='%s'><!-- %s --></%s>\n" % (
+          result += "    <%s type='%s'><!-- %s --></%s>\n" % (
             ns + ":" + key,
             fieldtype,
             value,
             ns + ":" + key)
-          )
         # display URIs for many2one fields
         elif fieldtype == 'many2one':
-          request.write("    <%s type='%s' relation='%s'>\n      <link href='%s' />\n    </%s>\n" % (
+          result += "    <%s type='%s' relation='%s'>\n      <link href='%s' />\n    </%s>\n" % (
             ns + ":" + key,
             fieldtype,
-            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
-            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(value[0])]),
+            '/'.join(basePath.split("/")[:-1] + [self.desc[key]["relation"]]),
+            '/'.join(basePath.split("/")[:-1] + [self.desc[key]["relation"], str(value[0])]),
             ns + ":" + key)
-          )
         # display URIs for *2many fields, wrapped by <item>
         elif fieldtype in ('one2many', 'many2many'):
-          request.write("    <%s type='%s' relation='%s'>%s</%s>\n" % (
+          result += "    <%s type='%s' relation='%s'>%s</%s>\n" % (
             ns + ":" + key,
             fieldtype,
-            '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"]]),
+            '/'.join(basePath.split("/")[:-1] + [self.desc[key]["relation"]]),
             ''.join(
-              ['\n      <link href="' + '/'.join(str(request.URLPath()).split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
+              ['\n      <link href="' + '/'.join(basePath.split("/")[:-1] + [self.desc[key]["relation"], str(v)]) + '" />' for v in value]
             ) + '\n    ',
             ns + ":" + key)
-          )
         # for other fields, just output the data
         else:
-          request.write("    <%s type='%s'>%s</%s>\n" % (
+          result += "    <%s type='%s'>%s</%s>\n" % (
             ns + ":" + key,
             fieldtype,
             xmlescape(unicode(value).encode('utf-8')),
             ns + ":" + key)
-          )
       else: # no type given or no self.desc present
-        request.write("    <%s>%s</%s>\n" % (
+        result += "    <%s>%s</%s>\n" % (
           ns + ":" + key,
           xmlescape(unicode(value).encode('utf-8')),
           ns + ":" + key)
-        )
-    request.write("  </%s>\n" % (ns + ":" + self.model.replace('.', '_')))
+    result += "  </%s>\n" % (ns + ":" + self.model.replace('.', '_'))
     for button in self.workflowDesc:
       if button.attrib.has_key("name") and \
           (not item.has_key("state") or not button.attrib.has_key("states") or item["state"] in button.attrib['states'].split(",")) \
           and not self.__is_number(button.attrib["name"]):
-        request.write("  <link rel='%s' href='%s' title='%s' />\n" % \
-          (button.attrib['name'], path+"/"+button.attrib['name'], button.attrib['string']))
-    request.write("  </content>\n</entry>")
+        result += "  <link rel='%s' href='%s' title='%s' />\n" % \
+          (button.attrib['name'], path+"/"+button.attrib['name'], button.attrib['string'])
+    result += "  </content>\n</entry>"
+    return result
+
+  def __handleItemAnswer(self, val, request, lastModified):
+    hello()
+    # val should be a one-element-list with a dictionary describing the current object
+    try:
+      item = val[0]
+    except IndexError:
+      request.setResponseCode(404)
+      request.write("No such resource.")
+      request.finish()
+      return
+
+    # set correct headers
+    request.setHeader("Last-Modified", httpdate(lastModified))
+    request.setHeader("Content-Type", "application/atom+xml; charset=utf-8")
+    # compose answer
+    ns = "".join([word[0] for word in self.model.split('.')])
+    basepath = str(request.URLPath())
+    path = basepath+"/"+str(item['id'])
+    s = self.__mkItemXml(ns, basepath + "/schema", basepath, path, lastModified, item)
+    request.write(s)
     request.finish()
 
   def __is_number(self, n):
