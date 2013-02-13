@@ -632,6 +632,105 @@ class OpenErpModelResource(Resource):
     request.setHeader("Location", loc)
     request.finish()
 
+  ### handle updates
+
+  def __getItemForUpdate(self, (uid, updateTime), request, pwd, modelId):
+    hello()
+    # make sure we're dealing with an integer id
+    try:
+      modelId = int(modelId)
+    except:
+      modelId = -1
+    # we add 'context' parameters, like 'lang' or 'tz'
+    params = self.getParamsFromRequest(request)
+    # issue the request
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [], params)
+    d.addCallback(self.__updateItem, uid, pwd, request, localTimeStringToUtcDatetime(updateTime))
+    return d
+
+  def __updateItem(self, old, uid, pwd, request, lastModified):
+    """This is called after successful login to add an items
+    to a certain collection, e.g. a new res.partner."""
+    hello()
+    if not self.desc:
+      raise xmlrpclib.Fault("warning -- Object Error", "no such collection")
+    # check whether we got well-formed XML
+    parser = etree.XMLParser(remove_comments=True)
+    try:
+      doc = etree.fromstring(request.content.read(), parser=parser)
+    except Exception as e:
+      request.setResponseCode(400)
+      request.write("malformed XML: "+str(e))
+      request.finish()
+      return
+    # check whether we got valid XML with the given schema
+    ns = str(request.URLPath()) + "/schema"
+    schemaxml = self.__desc2relaxNG(str(request.URLPath()), self.desc)
+    schema = etree.fromstring(schemaxml)
+    relaxng = etree.RelaxNG(schema)
+    # try to validate object
+    if not relaxng.validate(doc):
+      request.setResponseCode(400)
+      err = relaxng.error_log
+      request.write("invalid XML:\n"+str(err))
+      request.finish()
+      return
+    # compose old values for this object
+    xmlns = "".join([word[0] for word in self.model.split('.')])
+    basepath = str(request.URLPath())
+    path = basepath+"/"+str(old[0]['id'])
+    s = self.__mkItemXml(xmlns, basepath + "/schema", basepath, path, lastModified, old[0])
+    oldDocRoot = etree.fromstring(s, parser=parser)
+    oldDoc = oldDocRoot.find("{http://www.w3.org/2005/Atom}content").find("{%s}%s" % (ns, self.model.replace(".", "_")))
+    stripNsRe = re.compile(r'^{%s}(.+)$' % ns)
+    whitespaceRe = re.compile(r'\s+')
+    # collect all fields with new values
+    fields = {}
+    for c in doc.getchildren():
+      if c.tag == "{%s}id" % ns or c.tag == "{%s}create_date" % ns:
+        # will not update id or create_date
+        continue
+      elif whitespaceRe.sub(" ", etree.tostring(c, pretty_print=True).strip()) == whitespaceRe.sub(" ", etree.tostring(oldDoc.find(c.tag), pretty_print=True).strip()):
+        # c has old value
+        continue
+      # we can assume the regex will match due to validation beforehand
+      tagname = stripNsRe.search(c.tag).group(1)
+      if c.attrib["type"] in ("char", "selection", "text", "datetime"):
+        fields[tagname] = c.text
+      elif c.attrib["type"] == "float":
+        fields[tagname] = float(c.text)
+      elif c.attrib["type"] == "integer":
+        fields[tagname] = int(c.text)
+      elif c.attrib["type"] == "boolean":
+        fields[tagname] = (c.text == "True")
+      elif c.attrib["type"] == "many2one":
+        assert c.attrib['relation'] == oldDoc.find(c.tag).attrib['relation']
+        uris = [link.attrib['href'] for link in c.getchildren()]
+        ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
+        if ids:
+          fields[tagname] = ids[0]
+      elif c.attrib["type"] in ("many2many", "one2many"):
+        assert c.attrib['relation'] == oldDoc.find(c.tag).attrib['relation']
+        uris = [link.attrib['href'] for link in c.getchildren()]
+        ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
+        if ids:
+          fields[tagname] = [(6, 0, ids)]
+      else:
+        # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
+        raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
+    # compose the XML-RPC call from them
+    print fields
+    proxy = Proxy(self.openerpUrl + 'object')
+    d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'write', [old[0]['id']], fields)
+    d.addCallback(self.__handleUpdateItemAnswer, request)
+    return d
+
+  def __handleUpdateItemAnswer(self, object_id, request):
+    hello()
+    request.setResponseCode(204)
+    request.finish()
+
   ### handle login
 
   def __handleLoginAnswer(self, uid):
@@ -855,6 +954,33 @@ It only throws the given exception."""
     d.addErrback(self.__cleanup, request)
     return NOT_DONE_YET
 
+  def render_PUT(self, request):
+    hello()
+    user = request.getUser()
+    pwd = request.getPassword()
+
+    # login to OpenERP
+    proxyCommon = Proxy(self.openerpUrl + 'common')
+    d = proxyCommon.callRemote('login', self.dbname, user, pwd)
+    d.addCallback(self.__handleLoginAnswer)
+    d.addCallback(self.__updateTypedesc, pwd)
+    d.addCallback(self.__updateWorkflowDesc, pwd)
+    d.addCallback(self.__updateDefaults, pwd)
+
+    # if uri is sth. like /[dbname]/res.partner/27,
+    #  PUT updates this object
+    if len(request.postpath) == 1 and self.__is_number(request.postpath[0]):
+      d.addCallback(self.__getLastItemUpdate, request, pwd, request.postpath[0])
+      d.addCallback(self.__getItemForUpdate, request, pwd, request.postpath[0])
+
+    # if URI looks different, return 400, cannot PUT here
+    else:
+      d.addCallback(self.__raiseAnError,
+        PutNotPossible(str(request.URLPath()) + ''.join(['/'+r for r in request.postpath])))
+
+    d.addErrback(self.__cleanup, request)
+    return NOT_DONE_YET
+
 
 class InvalidParameter(Exception):
   code = 400
@@ -869,6 +995,13 @@ class PostNotPossible(Exception):
     self.res = res
   def __str__(self):
     return "You cannot POST to "+str(self.res)
+
+class PutNotPossible(Exception):
+  code = 400
+  def __init__(self, res):
+    self.res = res
+  def __str__(self):
+    return "You cannot PUT to "+str(self.res)
 
 class NoChildResources(Exception):
   code = 404
