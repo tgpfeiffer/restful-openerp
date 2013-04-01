@@ -689,19 +689,29 @@ class OpenErpModelResource(Resource):
     oldDoc = oldDocRoot.find("{http://www.w3.org/2005/Atom}content").find("{%s}%s" % (ns, self.model.replace(".", "_")))
     stripNsRe = re.compile(r'^{%s}(.+)$' % ns)
     whitespaceRe = re.compile(r'\s+')
+    def isEquivalentXml(a, b):
+      wsNormalizedA = whitespaceRe.sub(" ", etree.tostring(a, pretty_print=True).strip())
+      wsNormalizedB = whitespaceRe.sub(" ", etree.tostring(b, pretty_print=True).strip())
+      if wsNormalizedA == wsNormalizedB:
+        return True
+      elif a.attrib["type"] in ("char", "selection", "text", "datetime",
+        "float", "integer", "boolean") and a.attrib["type"] == b.attrib["type"]:
+        return a.text == b.text
+      else:
+        return False
     # collect all fields with new values
     fields = {}
     for c in doc.getchildren():
       if c.tag == "{%s}id" % ns or c.tag == "{%s}create_date" % ns:
         # will not update id or create_date
         continue
-      elif whitespaceRe.sub(" ", etree.tostring(c, pretty_print=True).strip()) == whitespaceRe.sub(" ", etree.tostring(oldDoc.find(c.tag), pretty_print=True).strip()):
+      elif isEquivalentXml(c, oldDoc.find(c.tag)):
         # c has old value
         continue
       # we can assume the regex will match due to validation beforehand
       tagname = stripNsRe.search(c.tag).group(1)
       if c.attrib["type"] in ("char", "selection", "text", "datetime"):
-        fields[tagname] = c.text
+        fields[tagname] = c.text or ""
       elif c.attrib["type"] == "float":
         fields[tagname] = float(c.text)
       elif c.attrib["type"] == "integer":
@@ -710,18 +720,20 @@ class OpenErpModelResource(Resource):
         fields[tagname] = (c.text == "True")
       elif c.attrib["type"] == "many2one":
         assert c.attrib['relation'] == oldDoc.find(c.tag).attrib['relation']
+        oldUris = [link.attrib['href'] for link in oldDoc.find(c.tag).getchildren()]
         uris = [link.attrib['href'] for link in c.getchildren()]
         ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
-        if ids:
+        if ids and oldUris != uris:
           fields[tagname] = ids[0]
       elif c.attrib["type"] in ("many2many", "one2many"):
         assert c.attrib['relation'] == oldDoc.find(c.tag).attrib['relation']
+        oldUris = [link.attrib['href'] for link in oldDoc.find(c.tag).getchildren()]
         uris = [link.attrib['href'] for link in c.getchildren()]
         ids = [int(u[u.rfind('/')+1:]) for u in uris if u.startswith(c.attrib['relation'])]
-        if ids:
+        if ids and oldUris != uris:
           fields[tagname] = [(6, 0, ids)]
       else:
-        # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
+        # TODO: date
         raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
     # compose the XML-RPC call from them
     proxy = Proxy(self.openerpUrl + 'object')
