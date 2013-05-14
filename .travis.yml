@@ -10,6 +10,7 @@ install:
   - gunzip demo.sql.gz
   - psql -U postgres demo < demo.sql > /dev/null
   # Install OpenERP
+  - sudo apt-get update
   - sudo apt-get install gdebi-core
   - wget http://nightly.openerp.com/6.1/releases/openerp_6.1-latest-1_all.deb
   - sudo gdebi -n openerp_6.1-latest-1_all.deb
