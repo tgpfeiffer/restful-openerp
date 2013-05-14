@@ -399,7 +399,7 @@ class OpenErpModelResource(Resource):
   </author>
   <content type="application/vnd.openerp+xml">
   <%s xmlns:%s="%s">
-''' % (xmlescape(unicode(item.has_key('name') and item['name'] or "None").encode('utf-8')),
+''' % (xmlescape(unicode(item.has_key('name') and item['name'] or "None")),
        path,
        lastModified.isoformat()[:-13]+'Z',
        path,
