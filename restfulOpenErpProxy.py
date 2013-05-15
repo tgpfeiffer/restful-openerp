@@ -77,6 +77,10 @@ class UnauthorizedPage(ErrorPage):
     request.setHeader("WWW-Authenticate", 'Basic realm="OpenERP"')
     return r
 
+def quietProxy(url):
+  p = Proxy(url)
+  p.queryFactory.noisy = False
+  return p
 
 # Dispatcher
 # ----------
@@ -194,7 +198,7 @@ class OpenErpModelResource(Resource):
               val = v
             newVals.append(v)
           params.append((key, 'in', tuple(newVals)))
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'search', params)
     d.addCallback(self.__handleCollectionAnswer, request, uid, pwd)
     return d
@@ -226,7 +230,7 @@ class OpenErpModelResource(Resource):
       request.write(str(feed.to_string().encode('utf-8')))
       request.finish()
 
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', val, ['name', '__last_update', 'user_id'])
     d.addCallback(createFeed, request)
     return d
@@ -240,7 +244,7 @@ class OpenErpModelResource(Resource):
       modelId = int(modelId)
     except:
       modelId = -1
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     def handleLastItemUpdateAnswer(updateAnswer):
       if not updateAnswer:
         raise NotFound(str(request.URLPath()))
@@ -255,7 +259,7 @@ class OpenErpModelResource(Resource):
     hello()
     if not self.defaults:
       # update type description
-      proxy = Proxy(self.openerpUrl + 'object')
+      proxy = quietProxy(self.openerpUrl + 'object')
       d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys(), {})
       d.addCallback(self.__handleDefaultsAnswer, uid)
       return d
@@ -381,7 +385,7 @@ class OpenErpModelResource(Resource):
     # we add 'context' parameters, like 'lang' or 'tz'
     params = self.getParamsFromRequest(request)
     # issue the request
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [], params)
     d.addCallback(self.__handleItemAnswer, request, localTimeStringToUtcDatetime(updateTime))
     return d
@@ -572,7 +576,7 @@ class OpenErpModelResource(Resource):
         # TODO: date, many2one (we can't really set many2many and one2many here, can we?)
         raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
     # compose the XML-RPC call from them
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'create', fields)
     d.addCallback(self.__handleAddCollectionAnswer, request)
     return d
@@ -590,7 +594,7 @@ class OpenErpModelResource(Resource):
     hello()
     modelId = int(modelId)
     # first, get information about the item
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [])
     d.addCallback(self.__executeWorkflow, uid, request, pwd, modelId, workflow)
     return d
@@ -629,13 +633,13 @@ class OpenErpModelResource(Resource):
         raise NotImplementedError("don't know how to handle input '%s' for workflow '%s'" % (body, workflow))
       # set parameters fro request
       params = {"active_model": match.group(1), "active_id": int(match.group(2)), "active_ids": [int(match.group(2))]}
-      proxy = Proxy(self.openerpUrl + 'object')
+      proxy = quietProxy(self.openerpUrl + 'object')
       d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, workflow, [modelId], params)
       d.addCallback(self.__handleWorkflowAnswer, request, modelId, workflow)
       return d
     elif currentAction.attrib.has_key("type"):
       raise NotImplementedError("don't know how to handle workflow '%s'" % workflow)
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('exec_workflow', self.dbname, uid, pwd, self.model, workflow, modelId)
     d.addCallback(self.__handleWorkflowAnswer, request, modelId, workflow)
     return d
@@ -658,7 +662,7 @@ class OpenErpModelResource(Resource):
     # we add 'context' parameters, like 'lang' or 'tz'
     params = self.getParamsFromRequest(request)
     # issue the request
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'read', [modelId], [], params)
     d.addCallback(self.__updateItem, uid, pwd, request, localTimeStringToUtcDatetime(updateTime))
     return d
@@ -746,7 +750,7 @@ class OpenErpModelResource(Resource):
         # TODO: date
         raise NotImplementedError("don't know how to handle element "+c.tag+" of type "+c.attrib["type"])
     # compose the XML-RPC call from them
-    proxy = Proxy(self.openerpUrl + 'object')
+    proxy = quietProxy(self.openerpUrl + 'object')
     d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'write', [old[0]['id']], fields)
     d.addCallback(self.__handleUpdateItemAnswer, request)
     return d
@@ -771,7 +775,7 @@ class OpenErpModelResource(Resource):
     hello()
     if not self.desc:
       # update type description
-      proxy = Proxy(self.openerpUrl + 'object')
+      proxy = quietProxy(self.openerpUrl + 'object')
       d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'fields_get', [])
       d.addCallback(self.__handleTypedescAnswer, uid)
       d.addErrback(self.__handleTypedescError, uid)
@@ -796,7 +800,7 @@ class OpenErpModelResource(Resource):
     hello()
     if not self.workflowDesc:
       # update type description
-      proxy = Proxy(self.openerpUrl + 'object')
+      proxy = quietProxy(self.openerpUrl + 'object')
       d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'fields_view_get', [])
       d.addCallback(self.__handleWorkflowDescAnswer, uid)
       d.addErrback(self.__handleWorkflowDescError, uid)
@@ -910,7 +914,7 @@ It only throws the given exception."""
     pwd = request.getPassword()
 
     # login to OpenERP
-    proxyCommon = Proxy(self.openerpUrl + 'common')
+    proxyCommon = quietProxy(self.openerpUrl + 'common')
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
@@ -953,7 +957,7 @@ It only throws the given exception."""
     pwd = request.getPassword()
 
     # login to OpenERP
-    proxyCommon = Proxy(self.openerpUrl + 'common')
+    proxyCommon = quietProxy(self.openerpUrl + 'common')
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
@@ -985,7 +989,7 @@ It only throws the given exception."""
     pwd = request.getPassword()
 
     # login to OpenERP
-    proxyCommon = Proxy(self.openerpUrl + 'common')
+    proxyCommon = quietProxy(self.openerpUrl + 'common')
     d = proxyCommon.callRemote('login', self.dbname, user, pwd)
     d.addCallback(self.__handleLoginAnswer)
     d.addCallback(self.__updateTypedesc, pwd)
