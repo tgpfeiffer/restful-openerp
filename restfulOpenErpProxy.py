@@ -257,7 +257,7 @@ class OpenErpModelResource(Resource):
 
   def __updateDefaults(self, uid, pwd):
     hello()
-    if not self.defaults:
+    if not uid in self.defaults:
       # update type description
       proxy = quietProxy(self.openerpUrl + 'object')
       d = proxy.callRemote('execute', self.dbname, uid, pwd, self.model, 'default_get', self.desc.keys(), {})
@@ -268,8 +268,8 @@ class OpenErpModelResource(Resource):
 
   def __handleDefaultsAnswer(self, val, uid):
     hello()
-    log.msg("updating default values for "+self.model)
-    self.defaults = val
+    log.msg("updating default values (uid=" + str(uid) + ") for " + self.model)
+    self.defaults[uid] = val
     return uid
 
   def __getItemDefaults(self, uid, request, pwd):
@@ -277,7 +277,7 @@ class OpenErpModelResource(Resource):
     # set correct headers
     request.setHeader("Content-Type", "application/atom+xml; charset=utf-8")
     # compose answer
-    request.write(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults))
+    request.write(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults[uid]))
     request.finish()
 
   def __mkDefaultXml(self, path, desc, item):
@@ -537,7 +537,7 @@ class OpenErpModelResource(Resource):
       request.finish()
       return
     # get default values for this model
-    defaultDocRoot = etree.fromstring(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults), parser=parser)
+    defaultDocRoot = etree.fromstring(self.__mkDefaultXml(str(request.URLPath()), self.desc, self.defaults[uid]), parser=parser)
     defaultDoc = defaultDocRoot.find("{http://www.w3.org/2005/Atom}content").find("{%s}%s" % (ns, self.model.replace(".", "_")))
     stripNsRe = re.compile(r'^{%s}(.+)$' % ns)
     whitespaceRe = re.compile(r'\s+')
