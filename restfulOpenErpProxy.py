@@ -123,6 +123,32 @@ class OpenErpDispatcher(Resource, object):
     #@override http://twistedmatrix.com/documents/10.0.0/api/twisted.web.resource.Resource.html#getChild
     def getChild(self, path, request):
         """Return a resource for the correct database."""
+        # Since all requests go through this functions, we use this
+        # chance to set the host information from the Host header
+        # in order to work well behind reverse proxies.
+        httpHost = request.getHeader("Host")
+        if httpHost:
+            parts = httpHost.split(":")
+            if len(parts) == 1:
+                hostname = parts[0]
+                if request.isSecure():
+                    request.setHost(hostname, 443, ssl=True)
+                else:
+                    request.setHost(hostname, 80)
+            elif len(parts) == 2:
+                hostname, port = parts
+                try:
+                    port = int(port)
+                    if request.isSecure():
+                        request.setHost(hostname, port, ssl=True)
+                    else:
+                        request.setHost(hostname, port)
+                except ValueError:
+                    log.msg(("Port number %s in Host header is not a " +
+                        "proper integer") % port)
+            else:
+                log.msg("Host header %s is ill-shaped" % httpHost)
+
         if path in self.databases:
             return self.databases[path]
         else:
