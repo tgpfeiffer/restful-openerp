@@ -1,6 +1,6 @@
 Twisted==12.0.0
 distribute==0.6.10
-lxml==2.3.4
+lxml==4.6.3
 pyatom==1.2
 python-dateutil==2.1
 six==1.1.0
