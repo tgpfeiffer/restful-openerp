@@ -1,6 +1,6 @@
 # RESTful OpenERP
 
-[![Build Status](https://travis-ci.org/tgpfeiffer/restful-openerp.png?branch=master)](https://travis-ci.org/tgpfeiffer/restful-openerp)
+**This repository is not maintained and has not been updated for a long time. Feel free to use it for inspiration or build your own solution on top of it, but this code should not be used as-is.**
 
 ## Introduction
 
